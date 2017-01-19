@@ -1,0 +1,105 @@
+# A generic Makefile included by the most platform-specific Makefiles.
+# Uses no fancy features, so can be included by many make variants,
+# but is not used by nmake.
+
+PUBLIC=../../public
+INTERNAL=../../internal
+TESTING=../../testing
+TOOLS=../../tools
+
+OPT=-O
+CPPFLAGS=${PLATFORM_CPPFLAGS} -I${PUBLIC} -I${INTERNAL}
+CFLAGS=${CPPFLAGS} ${OPT} ${PLATFORM_CFLAGS}
+CXXFLAGS=${CPPFLAGS} ${OPT} ${PLATFORM_CXXFLAGS}
+LDFLAGS=${OPT} ${PLATFORM_LDFLAGS}
+PAR_SUB_COUNT=1  # subtests to run in parallel with partest
+PAR_COUNT=2      # tests to run in parallel with partest
+
+TESTS=counter_test cv_mu_timeout_stress_test cv_test cv_wait_example_test dll_test mu_starvation_test mu_test mu_wait_example_test mu_wait_test note_test once_test pingpong_test wait_test
+
+TEST_OBJS=counter_test.o cv_mu_timeout_stress_test.o cv_test.o cv_wait_example_test.o dll_test.o mu_starvation_test.o mu_test.o mu_wait_example_test.o mu_wait_test.o note_test.o once_test.o pingpong_test.o wait_test.o
+TEST_LIB_OBJS=array.o atm_log.o closure.o time_extra.o smprintf.o testing.o ${TEST_PLATFORM_OBJS}
+LIB_OBJS=common.o counter.o cv.o dll.o mu.o mu_wait.o note.o time_internal.o once.o sem_wait.o wait.o ${PLATFORM_OBJS}
+LIB=nsync.a
+TEST_LIB=nsync_test.a
+
+all: ${LIB}
+
+${LIB}: ${LIB_OBJS}
+	${AR} cr ${LIB} $?
+
+${TEST_LIB}: ${TEST_LIB_OBJS}
+	${AR} cr ${TEST_LIB} $?
+
+clean:
+	rm -f ${LIB} ${TEST_LIB} ${TESTS} ${TEST_OBJS} ${TEST_LIB_OBJS} ${LIB_OBJS} mkdep run_tests
+
+tests: ${TESTS}
+
+test: tests run_tests
+	PATH="$$PATH:." ./run_tests -b ${TESTS}
+
+partest: tests run_tests
+	PATH="$$PATH:." ./run_tests -p ${PAR_COUNT} -n ${PAR_SUB_COUNT} -b ${TESTS}
+
+run_tests: ${TOOLS}/run_tests.c
+	${CC} ${TOOLS}/run_tests.c -o run_tests
+
+mkdep: ${TOOLS}/mkdep.c
+	${CC} ${TOOLS}/mkdep.c -o mkdep
+
+depend: ${MKDEP_DEPEND}
+	${MKDEP} ${CPPFLAGS} ${INTERNAL}/*.c ${TESTING}/*.c ${PLATFORM_C} \
+		${PLATFORM_S} ${PLATFORM_CXX} ${TEST_PLATFORM_C} > dependfile
+
+${PLATFORM_OBJS}: ${PLATFORM_C} ${PLATFORM_S} ${PLATFORM_CXX}
+	for x in ${PLATFORM_C}; do ${CC} ${CFLAGS} -c $$x; done; \
+	for x in ${PLATFORM_S} $$empty; do o=`basename $$x .s`; ${AS} $$x -o `basename $$o .S`.o; done; \
+	for x in ${PLATFORM_CXX} $$empty; do ${CXX} ${CXXFLAGS} -c $$x; done
+${TEST_PLATFORM_OBJS}: ${TEST_PLATFORM_C}; for x in ${TEST_PLATFORM_C}; do ${CC} ${CFLAGS} -c $$x; done
+
+common.o: ${INTERNAL}/common.c; ${CC} ${CFLAGS} -c ${INTERNAL}/common.c
+counter.o: ${INTERNAL}/counter.c; ${CC} ${CFLAGS} -c ${INTERNAL}/counter.c
+cv.o: ${INTERNAL}/cv.c; ${CC} ${CFLAGS} -c ${INTERNAL}/cv.c
+dll.o: ${INTERNAL}/dll.c; ${CC} ${CFLAGS} -c ${INTERNAL}/dll.c
+mu.o: ${INTERNAL}/mu.c; ${CC} ${CFLAGS} -c ${INTERNAL}/mu.c
+mu_wait.o: ${INTERNAL}/mu_wait.c; ${CC} ${CFLAGS} -c ${INTERNAL}/mu_wait.c
+note.o: ${INTERNAL}/note.c; ${CC} ${CFLAGS} -c ${INTERNAL}/note.c
+time_internal.o: ${INTERNAL}/time_internal.c; ${CC} ${CFLAGS} -c ${INTERNAL}/time_internal.c
+once.o: ${INTERNAL}/once.c; ${CC} ${CFLAGS} -c ${INTERNAL}/once.c
+sem_wait.o: ${INTERNAL}/sem_wait.c; ${CC} ${CFLAGS} -c ${INTERNAL}/sem_wait.c
+wait.o: ${INTERNAL}/wait.c; ${CC} ${CFLAGS} -c ${INTERNAL}/wait.c
+
+array.o: ${TESTING}/array.c; ${CC} ${CFLAGS} -c ${TESTING}/array.c
+atm_log.o: ${TESTING}/atm_log.c; ${CC} ${CFLAGS} -c ${TESTING}/atm_log.c
+closure.o: ${TESTING}/closure.c; ${CC} ${CFLAGS} -c ${TESTING}/closure.c
+counter_test.o: ${TESTING}/counter_test.c; ${CC} ${CFLAGS} -c ${TESTING}/counter_test.c
+cv_mu_timeout_stress_test.o: ${TESTING}/cv_mu_timeout_stress_test.c; ${CC} ${CFLAGS} -c ${TESTING}/cv_mu_timeout_stress_test.c
+cv_test.o: ${TESTING}/cv_test.c; ${CC} ${CFLAGS} -c ${TESTING}/cv_test.c
+cv_wait_example_test.o: ${TESTING}/cv_wait_example_test.c; ${CC} ${CFLAGS} -c ${TESTING}/cv_wait_example_test.c
+dll_test.o: ${TESTING}/dll_test.c; ${CC} ${CFLAGS} -c ${TESTING}/dll_test.c
+mu_starvation_test.o: ${TESTING}/mu_starvation_test.c; ${CC} ${CFLAGS} -c ${TESTING}/mu_starvation_test.c
+mu_test.o: ${TESTING}/mu_test.c; ${CC} ${CFLAGS} -c ${TESTING}/mu_test.c
+mu_wait_example_test.o: ${TESTING}/mu_wait_example_test.c; ${CC} ${CFLAGS} -c ${TESTING}/mu_wait_example_test.c
+mu_wait_test.o: ${TESTING}/mu_wait_test.c; ${CC} ${CFLAGS} -c ${TESTING}/mu_wait_test.c
+note_test.o: ${TESTING}/note_test.c; ${CC} ${CFLAGS} -c ${TESTING}/note_test.c
+once_test.o: ${TESTING}/once_test.c; ${CC} ${CFLAGS} -c ${TESTING}/once_test.c
+time_extra.o: ${TESTING}/time_extra.c; ${CC} ${CFLAGS} -c ${TESTING}/time_extra.c
+pingpong_test.o: ${TESTING}/pingpong_test.c; ${CC} ${CFLAGS} -c ${TESTING}/pingpong_test.c
+smprintf.o: ${TESTING}/smprintf.c; ${CC} ${CFLAGS} -c ${TESTING}/smprintf.c
+testing.o: ${TESTING}/testing.c; ${CC} ${CFLAGS} -c ${TESTING}/testing.c
+wait_test.o: ${TESTING}/wait_test.c; ${CC} ${CFLAGS} -c ${TESTING}/wait_test.c
+
+counter_test: counter_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+cv_mu_timeout_stress_test: cv_mu_timeout_stress_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+cv_test: cv_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+cv_wait_example_test: cv_wait_example_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+dll_test: dll_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_starvation_test: mu_starvation_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_test: mu_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_wait_example_test: mu_wait_example_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_wait_test: mu_wait_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+note_test: note_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+once_test: once_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+pingpong_test: pingpong_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+wait_test: wait_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}

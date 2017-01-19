@@ -1,0 +1,6 @@
+mkdep is used to create Makefile dependencies 
+with compilers that don't have a working flag to do it.
+
+run_tests is used to run tests.  It would be a few lines of shell script,
+except for Windows, which has a very different shell, so it's easier to do it
+in C.

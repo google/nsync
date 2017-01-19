@@ -1,0 +1,4 @@
+#ifndef NSYNC_PLATFORM_CLANG_ATOMIC_H_
+#define NSYNC_PLATFORM_CLANG_ATOMIC_H_
+#include "../gcc/atomic.h"
+#endif /*NSYNC_PLATFORM_CLANG_ATOMIC_H_*/
