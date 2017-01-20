@@ -112,7 +112,6 @@ platform/*/	Platform-dependent source code.
 testing/	Platform-independent testing source code is in "testing".
 tools/		Optional tools that can be used to create Makefile
 		dependencies and run tests.
-BUILD		bazel build description 
 
 Where possible, the code avoids conditional compilation (#if, etc.),
 to avoid becoming a mess of C-preprocessor directives.
