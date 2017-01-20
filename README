@@ -5,6 +5,8 @@ nsync is a C library that exports various synchronization primitives:
 	waitable counter (useful for barriers)
 	waitable bit (useful for cancellation, or other conditions)
 
+It is not an offical Google product.
+
 nsync may be desirable in place for pthread primitives in some cases:
 - nsync locks are reader-writer locks (but are as efficient as mutexes).
 - nsync locks and condition variables occupy only two words each.
