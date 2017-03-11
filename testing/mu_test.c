@@ -18,7 +18,6 @@
 #include "smprintf.h"
 #include "testing.h"
 #include "closure.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 
@@ -498,11 +497,12 @@ static void test_rlock (testing t) {
 		counter *lock_unlock_done;
 		counter *rlock_runlock_done;
 		nsync_time read_start_time;
-		nsync_mu mu = NSYNC_MU_INIT;
+		nsync_mu mu;
 		int value = 0;
 		counter *thread_done;
 
 		nsync_time start_time;
+		nsync_mu_init (&mu);
 		start_time = nsync_time_now ();
 
 		/* ------------------------------------ */
@@ -632,12 +632,13 @@ static void test_rlock (testing t) {
 		counter *lock_unlock_done;
 		counter *rlock_runlock_done;
 		nsync_time read_start_time;
-		nsync_mu mu = NSYNC_MU_INIT;
+		nsync_mu mu;
 		int value = 0;
 		counter *thread_done;
 
 		nsync_time start_time;
 
+		nsync_mu_init (&mu);
 		start_time = nsync_time_now ();
 
 		/* ------------------------------------ */
@@ -774,7 +775,8 @@ static void test_rlock (testing t) {
 static void benchmark_mu_uncontended (testing t) {
 	int i;
 	int n = testing_n (t);
-	nsync_mu mu = NSYNC_MU_INIT;
+	nsync_mu mu;
+	nsync_mu_init (&mu);
 	for (i = 0; i != n; i++) {
 		nsync_mu_lock (&mu);
 		nsync_mu_unlock (&mu);
@@ -782,20 +784,20 @@ static void benchmark_mu_uncontended (testing t) {
 }
 
 /* Return whether int *value is one. */
-static int int_is_1 (void *value) { return (*(int *)value == 1); }
+static int int_is_1 (const void *value) { return (*(const int *)value == 1); }
 
 /* Return whether int *value is two. */
-static int int_is_2 (void *value) { return (*(int *)value == 2); }
+static int int_is_2 (const void *value) { return (*(const int *)value == 2); }
 
 /* Return whether int *value is three. */
-static int int_is_3 (void *value) { return (*(int *)value == 3); }
+static int int_is_3 (const void *value) { return (*(const int *)value == 3); }
 
 /* Set *value to 1, wait for it to become 2, then set it to 3.  *value is under
    *mu */
 static void waiter (nsync_mu *mu, int *value) {
 	nsync_mu_lock (mu);
 	*value = 1;
-	nsync_mu_wait (mu, &int_is_2, value);
+	nsync_mu_wait (mu, &int_is_2, value, NULL);
 	*value = 3;
 	nsync_mu_unlock (mu);
 }
@@ -807,11 +809,12 @@ CLOSURE_DECL_BODY2 (waiter, nsync_mu *, int *)
 static void benchmark_mu_uncontended_waiter (testing t) {
 	int i;
 	int n = testing_n (t);
-	nsync_mu mu = NSYNC_MU_INIT;
+	nsync_mu mu;
 	int value = 0;
+	nsync_mu_init (&mu);
 	closure_fork (closure_waiter (&waiter, &mu, &value));
 	nsync_mu_lock (&mu);
-	nsync_mu_wait (&mu, &int_is_1, &value);
+	nsync_mu_wait (&mu, &int_is_1, &value, NULL);
 	nsync_mu_unlock (&mu);
 	for (i = 0; i != n; i++) {
 		nsync_mu_lock (&mu);
@@ -819,7 +822,7 @@ static void benchmark_mu_uncontended_waiter (testing t) {
 	}
 	nsync_mu_lock (&mu);
 	value = 2;
-	nsync_mu_wait (&mu, &int_is_3, &value);
+	nsync_mu_wait (&mu, &int_is_3, &value, NULL);
 	nsync_mu_unlock (&mu);
 }
 
@@ -828,11 +831,12 @@ static void benchmark_mu_uncontended_waiter (testing t) {
 static void benchmark_mu_uncontended_no_wakeup (testing t) {
 	int i;
 	int n = testing_n (t);
-	nsync_mu mu = NSYNC_MU_INIT;
+	nsync_mu mu;
 	int value = 0;
+	nsync_mu_init (&mu);
 	closure_fork (closure_waiter (&waiter, &mu, &value));
 	nsync_mu_lock (&mu);
-	nsync_mu_wait (&mu, &int_is_1, &value);
+	nsync_mu_wait (&mu, &int_is_1, &value, NULL);
 	nsync_mu_unlock (&mu);
 	for (i = 0; i != n; i++) {
 		nsync_mu_lock (&mu);
@@ -840,7 +844,7 @@ static void benchmark_mu_uncontended_no_wakeup (testing t) {
 	}
 	nsync_mu_lock (&mu);
 	value = 2;
-	nsync_mu_wait (&mu, &int_is_3, &value);
+	nsync_mu_wait (&mu, &int_is_3, &value, NULL);
 	nsync_mu_unlock (&mu);
 }
 
@@ -849,7 +853,8 @@ static void benchmark_mu_uncontended_no_wakeup (testing t) {
 static void benchmark_rmu_uncontended (testing t) {
 	int i;
 	int n = testing_n (t);
-	nsync_mu mu = NSYNC_MU_INIT;;
+	nsync_mu mu;
+	nsync_mu_init (&mu);
 	for (i = 0; i != n; i++) {
 		nsync_mu_rlock (&mu);
 		nsync_mu_runlock (&mu);
@@ -861,11 +866,12 @@ static void benchmark_rmu_uncontended (testing t) {
 static void benchmark_rmu_uncontended_waiter (testing t) {
 	int i;
 	int n = testing_n (t);
-	nsync_mu mu = NSYNC_MU_INIT;
+	nsync_mu mu;
 	int value = 0;
+	nsync_mu_init (&mu);
 	closure_fork (closure_waiter (&waiter, &mu, &value));
 	nsync_mu_lock (&mu);
-	nsync_mu_wait (&mu, &int_is_1, &value);
+	nsync_mu_wait (&mu, &int_is_1, &value, NULL);
 	nsync_mu_unlock (&mu);
 	for (i = 0; i != n; i++) {
 		nsync_mu_rlock (&mu);
@@ -873,7 +879,7 @@ static void benchmark_rmu_uncontended_waiter (testing t) {
 	}
 	nsync_mu_lock (&mu);
 	value = 2;
-	nsync_mu_wait (&mu, &int_is_3, &value);
+	nsync_mu_wait (&mu, &int_is_3, &value, NULL);
 	nsync_mu_unlock (&mu);
 }
 
@@ -940,12 +946,12 @@ typedef struct contended_state_s {
 	int not_yet_done;  /* threads not yet complete, under start_done_mu */
 } contended_state;
 
-static int contended_state_may_start (void *v) {
-	return (((contended_state *)v)->start);
+static int contended_state_may_start (const void *v) {
+	return (((const contended_state *)v)->start);
 }
 
-static int contended_state_all_done (void *v) {
-	return (((contended_state *)v)->not_yet_done == 0);
+static int contended_state_all_done (const void *v) {
+	return (((const contended_state *)v)->not_yet_done == 0);
 }
 
 /* Wait for cs.start to become non-zero, then loop, acquiring and
@@ -958,7 +964,7 @@ static void contended_state_contend_loop (contended_state *cs,
 	int j;
 	int i;
 	nsync_mu_rlock (&cs->start_done_mu);
-	nsync_mu_wait (&cs->start_done_mu, &contended_state_may_start, cs);
+	nsync_mu_wait (&cs->start_done_mu, &contended_state_may_start, cs, NULL);
 	nsync_mu_runlock (&cs->start_done_mu);
 
 	for (j = 0; j < n; j += 10000) {
@@ -993,7 +999,7 @@ static void contended_state_run_test (contended_state *cs, testing t,
 	}
 	nsync_mu_lock (&cs->start_done_mu);
 	cs->start = 1;
-	nsync_mu_wait (&cs->start_done_mu, &contended_state_all_done, cs);
+	nsync_mu_wait (&cs->start_done_mu, &contended_state_all_done, cs, NULL);
 	nsync_mu_unlock (&cs->start_done_mu);
 }
 

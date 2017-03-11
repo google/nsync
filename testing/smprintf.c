@@ -28,7 +28,7 @@ char *smprintf (const char *fmt, ...) {
 		if (x >= m) {
 			buf = (char *) realloc (buf, m = x+1);
 			didnt_fit = 1;
-		} else if (x < 0) {
+		} else if (x < 0 || x == m-1) {
 			buf = (char *) realloc (buf, m *= 2);
 			didnt_fit = 1;
 		} else {

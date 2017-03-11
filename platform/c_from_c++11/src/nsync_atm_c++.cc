@@ -93,11 +93,11 @@ int nsync_atm_cas_relacq_ (nsync_atomic_uint32_ *p, uint32_t old_value, uint32_t
 		std::memory_order_acq_rel, std::memory_order_relaxed));
 }
 
-uint32_t nsync_atm_load_ (nsync_atomic_uint32_ *p) {
+uint32_t nsync_atm_load_ (const nsync_atomic_uint32_ *p) {
 	return (std::atomic_load_explicit ((nsync_atomic_uint32_cpp_ *) p, std::memory_order_relaxed));
 }
 
-uint32_t nsync_atm_load_acq_ (nsync_atomic_uint32_ *p) {
+uint32_t nsync_atm_load_acq_ (const nsync_atomic_uint32_ *p) {
 	return (std::atomic_load_explicit ((nsync_atomic_uint32_cpp_ *) p, std::memory_order_acquire));
 }
 

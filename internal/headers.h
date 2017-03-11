@@ -22,6 +22,5 @@
 #include "nsync.h"
 #include "atomic.h"
 #include "sem.h"
-#include "time_internal.h"
 
 #endif /*NSYNC_INTERNAL_HEADERS_H_*/

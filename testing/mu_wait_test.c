@@ -19,7 +19,6 @@
 #include "smprintf.h"
 #include "testing.h"
 #include "closure.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 
@@ -45,12 +44,12 @@ static mu_queue *mu_queue_new (int limit) {
 	return (q);
 }
 
-static int mu_queue_non_empty (void *v) {
-	mu_queue *q = (mu_queue *) v;
+static int mu_queue_non_empty (const void *v) {
+	const mu_queue *q = (const mu_queue *) v;
 	return (q->count != 0);
 }
-static int mu_queue_non_full (void *v) {
-	mu_queue *q = (mu_queue *) v;
+static int mu_queue_non_full (const void *v) {
+	const mu_queue *q = (const mu_queue *) v;
 	return (q->count != q->limit);
 }
 
@@ -61,7 +60,7 @@ static int mu_queue_put (mu_queue *q, void *v, nsync_time abs_deadline) {
 	int added = 0;
 	nsync_mu_lock (&q->mu);
 	if (nsync_mu_wait_with_deadline (&q->mu, &mu_queue_non_full,
-					 q, abs_deadline, NULL) == 0) {
+					 q, NULL, abs_deadline, NULL) == 0) {
 		int i = q->pos + q->count;
 		if (q->count == q->limit) {
 			testing_panic ("q->count == q->limit");
@@ -84,7 +83,7 @@ static void *mu_queue_get (mu_queue *q, nsync_time abs_deadline) {
 	void *v = NULL;
 	nsync_mu_lock (&q->mu);
 	if (nsync_mu_wait_with_deadline (&q->mu, &mu_queue_non_empty,
-					 q, abs_deadline, NULL) == 0) {
+					 q, NULL, abs_deadline, NULL) == 0) {
 		if (q->count == 0) {
 			testing_panic ("q->count == 0");
 		}
@@ -203,7 +202,7 @@ static void test_mu_producer_consumer6 (testing t) {
 }
 
 /* A perpetually false wait condition. */
-static int false_condition (void *v UNUSED) {
+static int false_condition (const void *v UNUSED) {
 	return (0);
 }
 
@@ -216,10 +215,11 @@ static int false_condition (void *v UNUSED) {
 static void test_mu_deadline (testing t) {
 	int i;
 	int too_late_violations;
-	nsync_mu mu = NSYNC_MU_INIT;
+	nsync_mu mu;
 	nsync_time too_early;
 	nsync_time too_late;
 
+	nsync_mu_init (&mu);
 	too_early = nsync_time_ms (TOO_EARLY_MS);
 	too_late = nsync_time_ms (TOO_LATE_MS);
 	too_late_violations = 0;
@@ -230,7 +230,7 @@ static void test_mu_deadline (testing t) {
 		nsync_time expected_end_time;
 		start_time = nsync_time_now ();
 		expected_end_time = nsync_time_add (start_time, nsync_time_ms (87));
-		if (nsync_mu_wait_with_deadline (&mu, &false_condition, NULL,
+		if (nsync_mu_wait_with_deadline (&mu, &false_condition, NULL, NULL,
 						 expected_end_time, NULL) != ETIMEDOUT) {
 			TEST_FATAL (t, ("nsync_mu_wait() returned non-expired for a timeout"));
 		}
@@ -256,10 +256,11 @@ static void test_mu_cancel (testing t) {
 	int i;
 	nsync_time future_time;
 	int too_late_violations;
-	nsync_mu mu = NSYNC_MU_INIT;
+	nsync_mu mu;
 	nsync_time too_early;
 	nsync_time too_late;
 
+	nsync_mu_init (&mu);
 	too_early = nsync_time_ms (TOO_EARLY_MS);
 	too_late = nsync_time_ms (TOO_LATE_MS);
 
@@ -278,10 +279,10 @@ static void test_mu_cancel (testing t) {
 
 		start_time = nsync_time_now ();
 		expected_end_time = nsync_time_add (start_time, nsync_time_ms (87));
-		nsync_note_init (&cancel, NULL, expected_end_time);
+		cancel = nsync_note_new (NULL, expected_end_time);
 
-		x = nsync_mu_wait_with_deadline (&mu, &false_condition, NULL,
-						 future_time, &cancel);
+		x = nsync_mu_wait_with_deadline (&mu, &false_condition, NULL, NULL,
+						 future_time, cancel);
 		if (x != ECANCELED) {
 			TEST_FATAL (t, ("nsync_mu_wait() return non-cancelled (%d) for "
 				   "a cancellation; expected %d",
@@ -299,8 +300,8 @@ static void test_mu_cancel (testing t) {
 
 		/* Check that an already cancelled wait returns immediately. */
 		start_time = nsync_time_now ();
-		x = nsync_mu_wait_with_deadline (&mu, &false_condition, NULL,
-						 nsync_time_no_deadline, &cancel);
+		x = nsync_mu_wait_with_deadline (&mu, &false_condition, NULL, NULL,
+						 nsync_time_no_deadline, cancel);
 		if (x != ECANCELED) {
 			TEST_FATAL (t, ("nsync_mu_wait() returned non-cancelled for a "
 				   "cancellation; expected %d",
@@ -315,6 +316,7 @@ static void test_mu_cancel (testing t) {
 		if (nsync_time_cmp (nsync_time_add (start_time, too_late), end_time) < 0) {
 			too_late_violations++;
 		}
+		nsync_note_free (cancel);
 	}
 	nsync_mu_unlock (&mu);
 	if (too_late_violations > TOO_LATE_ALLOWED) {

@@ -5,8 +5,8 @@ PLATFORM_CXXFLAGS=-Werror -Wall -Wextra -std=c++11 -pedantic
 PLATFORM_CXX=../../platform/c_from_c++11/src/nsync_atm_c++.cc
 MKDEP_DEPEND=mkdep
 MKDEP=./mkdep ${CC} -E -c++=-std=c++11
-PLATFORM_C=../../platform/posix/src/clock_gettime.c ../../platform/posix/src/nsync_semaphore_mutex.c ../../platform/posix/src/per_thread_waiter.c ../../platform/posix/src/yield.c ../../platform/posix/src/time_rep.c
-PLATFORM_OBJS=nsync_atm_c++.o clock_gettime.o nsync_semaphore_mutex.o per_thread_waiter.o yield.o time_rep.o
+PLATFORM_C=../../platform/posix/src/clock_gettime.c ../../platform/posix/src/nsync_semaphore_mutex.c ../../platform/posix/src/per_thread_waiter.c ../../platform/posix/src/yield.c ../../platform/posix/src/time_rep.c ../../platform/posix/src/nsync_panic.c
+PLATFORM_OBJS=nsync_atm_c++.o clock_gettime.o nsync_semaphore_mutex.o per_thread_waiter.o yield.o time_rep.o nsync_panic.o
 TEST_PLATFORM_C=../../platform/posix/src/start_thread.c
 TEST_PLATFORM_OBJS=start_thread.o
 

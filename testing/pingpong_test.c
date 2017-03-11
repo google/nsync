@@ -17,7 +17,6 @@
 #include "smprintf.h"
 #include "testing.h"
 #include "closure.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 
@@ -176,15 +175,15 @@ static void benchmark_ping_pong_mu_cv_unexpired_deadline (testing t) {
 
 /* --------------------------------------- */
 /* even_ping_pong and odd_ping_pong are wait conditions used by mu_ping_pong. */
-static int even_ping_pong (void *v) {
-	return ((((ping_pong *) v)->i & 1) == 0);
+static int even_ping_pong (const void *v) {
+	return ((((const ping_pong *) v)->i & 1) == 0);
 }
 
-static int odd_ping_pong (void *v) {
-	return ((((ping_pong *) v)->i & 1) == 1);
+static int odd_ping_pong (const void *v) {
+	return ((((const ping_pong *) v)->i & 1) == 1);
 }
 
-typedef int (*condition_func) (void *v);
+typedef int (*condition_func) (const void *v);
 static const condition_func condition[] = { &even_ping_pong, &odd_ping_pong };
 
 /* Run by each thread in benchmark_ping_pong_mu_unexpired_deadline(). */
@@ -193,7 +192,7 @@ static void mu_unexpired_deadline_ping_pong (ping_pong *pp, int parity) {
 	deadline_in1hour = nsync_time_add (nsync_time_now (), nsync_time_ms (3600000));
 	nsync_mu_lock (&pp->mu);
 	while (pp->i < pp->limit) {
-		nsync_mu_wait_with_deadline (&pp->mu, condition[parity], pp,
+		nsync_mu_wait_with_deadline (&pp->mu, condition[parity], pp, NULL,
 					     deadline_in1hour, NULL);
 		pp->i++;
 	}
@@ -273,7 +272,7 @@ static void benchmark_ping_pong_mutex_cond (testing t) {
 static void mu_ping_pong (ping_pong *pp, int parity) {
 	nsync_mu_lock (&pp->mu);
 	while (pp->i < pp->limit) {
-		nsync_mu_wait (&pp->mu, condition[parity], pp);
+		nsync_mu_wait (&pp->mu, condition[parity], pp, NULL);
 		pp->i++;
 	}
 	nsync_mu_unlock (&pp->mu);

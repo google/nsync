@@ -22,5 +22,6 @@
 #include "nsync_counter.h"
 #include "nsync_waiter.h"
 #include "nsync_once.h"
+#include "nsync_debug.h"
 
 #endif /*NSYNC_PUBLIC_NSYNC_H_*/

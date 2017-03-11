@@ -60,13 +60,13 @@ void nsync_set_per_thread_waiter_ (void *v, void (*dest) (void *));
        } */
 unsigned nsync_spin_delay_ (unsigned attempts);
 
-/* Spin until (*w & test) == 0.  It then atomically performs
-   *w |= set and returns the previous value of *w.  It performs an acquire
-   barrier. */
+/* Spin until (*w & test) == 0, then atomically perform *w = ((*w | set) &
+   ~clear), perform an acquire barrier, and return the previous value of *w.
+   */
 uint32_t nsync_spin_test_and_set_ (nsync_atomic_uint32_ *w, uint32_t test,
 				   uint32_t set, uint32_t clear);
 
-/* Abort after printing the string s. */
+/* Abort after printing the nul-temrinated string s[]. */
 void nsync_panic_ (const char *s);
 
 /* ---------- */
@@ -76,7 +76,39 @@ void nsync_panic_ (const char *s);
 
 /* ---------- */
 
-/* Bits in mu.word */
+/* Fields in nsync_mu.word.
+
+   - At least one of the MU_WLOCK or MU_RLOCK_FIELD fields must be zero.
+   - MU_WLOCK indicates that a write lock is held.
+   - MU_RLOCK_FIELD is a count of readers with read locks.
+
+   - MU_SPINLOCK represents a spinlock that must be held when manipulating the
+     waiter queue.
+
+   - MU_DESIG_WAKER indicates that a former waiter has been woken, but has
+     neither acquired the lock nor gone back to sleep.  Legal to fail to set it;
+     illegal to set it when no such waiter exists.
+
+   - MU_WAITING indicates whether the waiter queue is non-empty.
+     The following bits should be zero if MU_WAITING is zero.
+   - MU_CONDITION indicates that some waiter may have an associated condition
+     (from nsync_mu_wait, etc.).  Legal to set it with no such waiter exists,
+     but illegal to fail to set it with such a waiter.
+   - MU_WRITER_WAITING indicates that a reader that has not yet blocked
+     at least once should not acquire in order not to starve waiting writers.
+     It set when a writer blocks or a reader is woken with a writer waiting.
+     It is reset when a writer acquires, but set again when that writer
+     releases if it wakes readers and there is a waiting writer.
+   - MU_LONG_WAIT indicates that a waiter has been woken many times but
+     repeatedly failed to acquire when competing for the lock.  This is used
+     only to prevent long-term starvation by writers.  The thread that sets it
+     clears it when if acquires.
+   - MU_ALL_FALSE indicates that a complete scan of the waiter list found no
+     waiters with true conditions, and the lock has not been acquired by a
+     writer since then.  This allows a reader lock to be released without
+     testing conditions again.  It is legal to fail to set this, but illegal
+     to set it inappropriately.
+ */
 #define MU_WLOCK ((uint32_t) (1 << 0)) /* writer lock is held. */
 #define MU_SPINLOCK ((uint32_t) (1 << 1)) /* spinlock is held (protects waiters). */
 #define MU_WAITING ((uint32_t) (1 << 2)) /* waiter list is non-empty. */
@@ -85,7 +117,7 @@ void nsync_panic_ (const char *s);
 #define MU_WRITER_WAITING ((uint32_t) (1 << 5)) /* there is a writer waiting */
 #define MU_LONG_WAIT ((uint32_t) (1 << 6)) /* the waiter at the head of the queue has been waiting a long time */
 #define MU_ALL_FALSE ((uint32_t) (1 << 7)) /* all waiter conditions are false */
-#define MU_RLOCK ((uint32_t) (1 << 8)) /* reader count of 1  (count field extends to end of word) */
+#define MU_RLOCK ((uint32_t) (1 << 8)) /* low-order bit of reader count, which uses rest of word */
 
 /* The constants below are derived from those above. */
 #define MU_RLOCK_FIELD (~(uint32_t) (MU_RLOCK - 1)) /* mask of reader count field */
@@ -96,9 +128,9 @@ void nsync_panic_ (const char *s);
 #define MU_WADD_TO_ACQUIRE (MU_WLOCK)         /* add to acquire a write lock */
 #define MU_WHELD_IF_NON_ZERO (MU_WLOCK)       /* if any of these bits are set, write lock is held */
 #define MU_WSET_WHEN_WAITING (MU_WAITING | MU_WRITER_WAITING) /* a writer is waiting */
-#define MU_WCLEAR_ON_ACQUIRE (MU_WRITER_WAITING)  /* clear MU_WRITER_WAITING is a writer acquires */
+#define MU_WCLEAR_ON_ACQUIRE (MU_WRITER_WAITING)  /* clear MU_WRITER_WAITING when a writer acquires */
 #define MU_WCLEAR_ON_UNCONTENDED_RELEASE (MU_ALL_FALSE) /* clear if a writer releases w/o waking */
-	
+
 /* bits to be zero to acquire read lock */
 #define MU_RZERO_TO_ACQUIRE (MU_WLOCK | MU_WRITER_WAITING | MU_LONG_WAIT)
 #define MU_RADD_TO_ACQUIRE (MU_RLOCK)         /* add to acquire a read lock */
@@ -106,8 +138,8 @@ void nsync_panic_ (const char *s);
 #define MU_RSET_WHEN_WAITING (MU_WAITING)     /* indicate that some thread is waiting */
 #define MU_RCLEAR_ON_ACQUIRE ((uint32_t) 0)              /* nothing to clear when a read acquires */
 #define MU_RCLEAR_ON_UNCONTENDED_RELEASE ((uint32_t) 0)  /* nothing to clear when a read releases */
-		
-	
+
+
 /* A lock_type holds the values needed to manipulate a mu in some mode (read or
    write).  This allows some of the code to be generic, and parameterized by
    the lock type. */
@@ -129,14 +161,24 @@ extern lock_type *nsync_reader_type_;
 
 /* ---------- */
 
+/* Bits in nsync_cv.word */
+
+#define CV_SPINLOCK ((uint32_t) (1 << 0)) /* protects waiters */
+#define CV_NON_EMPTY ((uint32_t) (1 << 1)) /* waiters list is non-empty */
+
+/* ---------- */
+
 /* Hold a pair of  condition function and its argument. */
 struct wait_condition_s {
-	int (*f) (void *v);
-	void *v;
+	int (*f) (const void *v);
+	const void *v;
+	int (*eq) (const void *a, const void *b);
 };
 
 /* Return whether wait conditions *a_ and *b_ are equal and non-null. */
-#define WAIT_CONDITION_EQ(a_, b_)  ((a_)->f != NULL && (a_)->f == (b_)->f && (a_)->v == (b_)->v)
+#define WAIT_CONDITION_EQ(a_, b_)  ((a_)->f != NULL && (a_)->f == (b_)->f && \
+                                    ((a_)->v == (b_)->v || \
+				     ((a_)->eq != NULL && (*(a_)->eq) ((a_)->v, (b_)->v))))
 
 /* If a waiter has waited this many times, it may set the MU_LONG_WAIT bit. */
 #define LONG_WAIT_THRESHOLD 30
@@ -168,10 +210,10 @@ typedef struct {
 	nsync_atomic_uint32_ remove_count;   /* count of removals from queue */
 	struct wait_condition_s cond; /* A condition on which to acquire a mu. */
 	nsync_dll_element_ same_condition;   /* Links neighbours in nw.q with same non-nil condition. */
-	int flags;                    /* see WAITER_FLAG_* bits */
+	int flags;                    /* see WAITER_* bits below */
 } waiter;
-static const uint32_t WAITER_TAG = 0x0590239fu;
-static const uint32_t NSYNC_WAITER_TAG = 0x726d2ba9u;
+static const uint32_t WAITER_TAG = 0x0590239f;
+static const uint32_t NSYNC_WAITER_TAG = 0x726d2ba9;
 
 #define WAITER_RESERVED 0x1  /* waiter reserved by a thread, even when not in use */
 #define WAITER_IN_USE   0x2  /* waiter in use by a thread */
@@ -204,13 +246,30 @@ void nsync_waiter_free_ (waiter *w);
 
 /* ---------- */
 
+/* The internals of an nync_note.  See internal/note.c for details of locking
+   discipline.  */
+struct nsync_note_s_ {
+        nsync_dll_element_ parent_child_link; /* parent's children, under parent->note_mu  */
+        int expiry_time_valid;      /* whether expiry_time is valid; r/o after init */
+        nsync_time expiry_time;     /* expiry time, if expiry_time_valid != 0; r/o after init */
+        nsync_mu note_mu;          /* protects fields below except "notified" */
+        nsync_cv no_children_cv;    /* signalled when children becomes empty */
+        uint32_t disconnecting;     /* non-zero => node is being disconnected */
+        nsync_atomic_uint32_ notified;   /* non-zero if the note has been notified */
+        struct nsync_note_s_ *parent;     /* points to parent, if any */
+        nsync_dll_element_ *children; /* list of children */
+        nsync_dll_element_ *waiters;  /* list of waiters */
+};
+
+/* ---------- */
+
 void nsync_mu_lock_slow_ (nsync_mu *mu, waiter *w, uint32_t clear, lock_type *l_type);
 void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type);
 nsync_dll_list_ nsync_remove_from_mu_queue_ (nsync_dll_list_ mu_queue, nsync_dll_element_ *e);
 void nsync_maybe_merge_conditions_ (nsync_dll_element_ *p, nsync_dll_element_ *n);
-nsync_time nsync_note_notified_deadline_ (nsync_note *n);
+nsync_time nsync_note_notified_deadline_ (nsync_note n);
 int nsync_sem_wait_with_cancel_ (waiter *w, nsync_time abs_deadline,
-				 nsync_note *cancel_note);
+				 nsync_note cancel_note);
 NSYNC_CPP_END_
 
 #endif /*NSYNC_INTERNAL_COMMON_H_*/

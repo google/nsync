@@ -34,7 +34,7 @@ nsync_time nsync_time_no_deadline =
 
 nsync_time nsync_time_zero = NSYNC_TIME_STATIC_INIT (0, 0);
 
-nsync_time nsync_time_s_ns (time_t s, uint32_t ns) {
+nsync_time nsync_time_s_ns (time_t s, unsigned ns) {
 	nsync_time t;
 	memset (&t, 0, sizeof (t));
 	t.tv_sec = s;
@@ -55,6 +55,8 @@ nsync_time nsync_time_sleep (nsync_time delay) {
 	ts.tv_sec = NSYNC_TIME_SEC (delay);
 	ts.tv_nsec = NSYNC_TIME_NSEC (delay);
 	if (nanosleep (&ts, &remain) == 0) {
+		/* nanosleep() is not required to fill in "remain"
+		   if it returns 0. */
 		memset (&remain, 0, sizeof (remain));
 	}
 	return (remain);

@@ -19,9 +19,9 @@
 #include "nsync.h"
 #include "dll.h"
 #include "sem.h"
+#include "wait_internal.h"
 #include "common.h"
 #include "atomic.h"
-#include "time_internal.h"
 
 NSYNC_CPP_START_
 
@@ -97,7 +97,7 @@ static int mu_try_acquire_after_timeout_or_cancel (nsync_mu *mu, lock_type *l_ty
 		/* This thread's condition is now irrelevant, and it
 		   holds a writer lock.  Remove it from the queue,
 		   and possibly convert back to a reader lock. */
-		mu->waiters = nsync_remove_from_mu_queue_ (mu->waiters, (nsync_dll_element_ *)&w->nw.q);
+		mu->waiters = nsync_remove_from_mu_queue_ (mu->waiters, &w->nw.q);
 		ATM_STORE (&w->nw.waiting, 0);
 
 		/* Release spinlock but keep desired lock type. */
@@ -138,8 +138,10 @@ static int mu_try_acquire_after_timeout_or_cancel (nsync_mu *mu, lock_type *l_ty
    wait conditions are used.  In such cases, use an explicit condition variable
    per wakeup condition for best performance. */
 int nsync_mu_wait_with_deadline (nsync_mu *mu,
-				 int (*condition) (void *condition_arg), void *condition_arg,
-				 nsync_time abs_deadline, nsync_note *cancel_note) {
+				 int (*condition) (const void *condition_arg),
+				 const void *condition_arg,
+				 int (*condition_arg_eq) (const void *a, const void *b),
+				 nsync_time abs_deadline, nsync_note cancel_note) {
 	lock_type *l_type;
 	int first_wait;
 	int condition_is_true;
@@ -161,7 +163,7 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
 	first_wait = 1; /* first time through the loop below. */
 	condition_is_true = (condition == NULL || (*condition) (condition_arg));
 
-	/* Loop until either the condition becomes true, of "outcome" indicates
+	/* Loop until either the condition becomes true, or "outcome" indicates
 	   cancellation or timeout. */
 	w = NULL;
 	outcome = 0;
@@ -182,6 +184,7 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
 		w->l_type = l_type;
 		w->cond.f = condition;
 		w->cond.v = condition_arg;
+		w->cond.eq = condition_arg_eq;
 		has_condition = 0; /* set to MU_CONDITION if condition is non-NULL */
 		if (condition != NULL) {
 			has_condition = MU_CONDITION;
@@ -196,17 +199,17 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
 		/* Queue the waiter. */
 		if (first_wait) {
 			nsync_maybe_merge_conditions_ (nsync_dll_last_ (mu->waiters),
-						       (nsync_dll_element_ *)&w->nw.q);
+						       &w->nw.q);
 			/* first wait goes to end of queue */
 			mu->waiters = nsync_dll_make_last_in_list_ (mu->waiters,
-							     (nsync_dll_element_ *)&w->nw.q);
+							            &w->nw.q);
 			first_wait = 0;
 		} else {
-			nsync_maybe_merge_conditions_ ((nsync_dll_element_ *)&w->nw.q,
+			nsync_maybe_merge_conditions_ (&w->nw.q,
 						       nsync_dll_first_ (mu->waiters));
 			/* subsequent waits go to front of queue */
 			mu->waiters = nsync_dll_make_first_in_list_ (mu->waiters,
-							      (nsync_dll_element_ *)&w->nw.q);
+							             &w->nw.q);
 		}
 		/* Release spinlock and *mu. */
 		do {
@@ -273,8 +276,10 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
    calling thread.
    See wait_with_deadline() for the restrictions on condition and performance
    considerations. */
-void nsync_mu_wait (nsync_mu *mu, int (*condition) (void *condition_arg), void *condition_arg) {
-	if (nsync_mu_wait_with_deadline (mu, condition, condition_arg,
+void nsync_mu_wait (nsync_mu *mu, int (*condition) (const void *condition_arg),
+                    const void *condition_arg,
+		    int (*condition_arg_eq) (const void *a, const void *b)) {
+	if (nsync_mu_wait_with_deadline (mu, condition, condition_arg, condition_arg_eq,
 					 nsync_time_no_deadline, NULL) != 0) {
 		nsync_panic_ ("nsync_mu_wait woke but condition not true\n");
 	}

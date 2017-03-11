@@ -20,10 +20,10 @@ typedef struct closure_s {
 	void (*f0) (void *);
 } closure;
 
-/* Run the closure *cl, and free  */
+/* Run the closure *cl, and free it. */
 void closure_run (closure *cl);
 
-/* Fork a new thread running the closure *cl, which will be free when the
+/* Fork a new thread running the closure *cl, which will be freed when the
    thread exits.  */
 void closure_fork (closure *cl);
 
@@ -47,7 +47,7 @@ void closure_fork (closure *cl);
    to generate the static routine:
 	static closure *closure_foo (void (*f) (type0, type1), type0 x0, type1 x1);
    that will return a closure for any function taking a "type0" argument, and
-   and "type1" argument.
+   a "type1" argument.
 
    And so on, up to 9 arguments.
 

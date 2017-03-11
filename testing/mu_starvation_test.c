@@ -18,7 +18,6 @@
 #include "smprintf.h"
 #include "testing.h"
 #include "closure.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 
@@ -81,12 +80,12 @@ static void starve_with_readers (starve_data *sd, nsync_time period,
 
 CLOSURE_DECL_BODY4 (starve_with_readers, starve_data *, nsync_time, uint32_t, nsync_time)
 
-static int started (void *v) {
-	return (((starve_data *) v)->not_yet_started == 0);
+static int started (const void *v) {
+	return (((const starve_data *) v)->not_yet_started == 0);
 }
 
-static int done (void *v) {
-	return (((starve_data *) v)->not_yet_done == 0);
+static int done (const void *v) {
+	return (((const starve_data *) v)->not_yet_done == 0);
 }
 
 /* Verify the behaviour of nsync_mu in the face of reader threads that conspire
@@ -121,7 +120,7 @@ static void test_starve_with_readers (testing t) {
 
 	/* wait for the threads to acquire their first lock. */
 	nsync_mu_lock (&sd.control_mu);
-	nsync_mu_wait (&sd.control_mu, &started, &sd);
+	nsync_mu_wait (&sd.control_mu, &started, &sd, NULL);
 	nsync_mu_unlock (&sd.control_mu);
 
 	/* If using an nsync_mu, use nsync_mu_trylock() to attempt to acquire while the
@@ -164,7 +163,7 @@ static void test_starve_with_readers (testing t) {
 	nsync_mu_unlock (&sd.mu);
 
 	nsync_mu_lock (&sd.control_mu);
-	nsync_mu_wait (&sd.control_mu, &done, &sd); /* wait for exit. */
+	nsync_mu_wait (&sd.control_mu, &done, &sd, NULL); /* wait for exit. */
 	nsync_mu_unlock (&sd.control_mu);
 }
 
@@ -235,7 +234,7 @@ static void test_starve_with_writer (testing t) {
 						  nsync_time_ms (10), deadline));
 
 	nsync_mu_lock (&sd.control_mu);
-	nsync_mu_wait (&sd.control_mu, &started, &sd);
+	nsync_mu_wait (&sd.control_mu, &started, &sd, NULL);
 	nsync_mu_unlock (&sd.control_mu);
 
 	expected_lo = 0;   /* minimum expected operations at each test */
@@ -330,7 +329,7 @@ static void test_starve_with_writer (testing t) {
 	nsync_mu_unlock (&sd.mu);
 
 	nsync_mu_lock (&sd.control_mu);
-	nsync_mu_wait (&sd.control_mu, &done, &sd); /* wait for exit. */
+	nsync_mu_wait (&sd.control_mu, &done, &sd, NULL); /* wait for exit. */
 	nsync_mu_unlock (&sd.control_mu);
 }
 

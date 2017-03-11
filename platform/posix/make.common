@@ -19,7 +19,7 @@ TESTS=counter_test cv_mu_timeout_stress_test cv_test cv_wait_example_test dll_te
 
 TEST_OBJS=counter_test.o cv_mu_timeout_stress_test.o cv_test.o cv_wait_example_test.o dll_test.o mu_starvation_test.o mu_test.o mu_wait_example_test.o mu_wait_test.o note_test.o once_test.o pingpong_test.o wait_test.o
 TEST_LIB_OBJS=array.o atm_log.o closure.o time_extra.o smprintf.o testing.o ${TEST_PLATFORM_OBJS}
-LIB_OBJS=common.o counter.o cv.o dll.o mu.o mu_wait.o note.o time_internal.o once.o sem_wait.o wait.o ${PLATFORM_OBJS}
+LIB_OBJS=common.o counter.o cv.o debug.o dll.o mu.o mu_wait.o note.o once.o sem_wait.o time_internal.o wait.o ${PLATFORM_OBJS}
 LIB=nsync.a
 TEST_LIB=nsync_test.a
 
@@ -27,9 +27,11 @@ all: ${LIB}
 
 ${LIB}: ${LIB_OBJS}
 	${AR} cr ${LIB} $?
+	case "${RANLIB}" in "") ;; *) ${RANLIB} ${LIB};; esac
 
 ${TEST_LIB}: ${TEST_LIB_OBJS}
 	${AR} cr ${TEST_LIB} $?
+	case "${RANLIB}" in "") ;; *) ${RANLIB} ${TEST_LIB};; esac
 
 clean:
 	rm -f ${LIB} ${TEST_LIB} ${TESTS} ${TEST_OBJS} ${TEST_LIB_OBJS} ${LIB_OBJS} mkdep run_tests
@@ -53,14 +55,15 @@ depend: ${MKDEP_DEPEND}
 		${PLATFORM_S} ${PLATFORM_CXX} ${TEST_PLATFORM_C} > dependfile
 
 ${PLATFORM_OBJS}: ${PLATFORM_C} ${PLATFORM_S} ${PLATFORM_CXX}
-	for x in ${PLATFORM_C}; do ${CC} ${CFLAGS} -c $$x; done; \
-	for x in ${PLATFORM_S} $$empty; do o=`basename $$x .s`; ${AS} $$x -o `basename $$o .S`.o; done; \
+	for x in ${PLATFORM_C} $$empty; do ${CC} ${CFLAGS} -c $$x; done; \
+	for x in ${PLATFORM_S} $$empty; do o=`basename $$x .s`; ${AS} ${ASFLAGS} $$x -o `basename $$o .S`.o; done; \
 	for x in ${PLATFORM_CXX} $$empty; do ${CXX} ${CXXFLAGS} -c $$x; done
 ${TEST_PLATFORM_OBJS}: ${TEST_PLATFORM_C}; for x in ${TEST_PLATFORM_C}; do ${CC} ${CFLAGS} -c $$x; done
 
 common.o: ${INTERNAL}/common.c; ${CC} ${CFLAGS} -c ${INTERNAL}/common.c
 counter.o: ${INTERNAL}/counter.c; ${CC} ${CFLAGS} -c ${INTERNAL}/counter.c
 cv.o: ${INTERNAL}/cv.c; ${CC} ${CFLAGS} -c ${INTERNAL}/cv.c
+debug.o: ${INTERNAL}/debug.c; ${CC} ${CFLAGS} -c ${INTERNAL}/debug.c
 dll.o: ${INTERNAL}/dll.c; ${CC} ${CFLAGS} -c ${INTERNAL}/dll.c
 mu.o: ${INTERNAL}/mu.c; ${CC} ${CFLAGS} -c ${INTERNAL}/mu.c
 mu_wait.o: ${INTERNAL}/mu_wait.c; ${CC} ${CFLAGS} -c ${INTERNAL}/mu_wait.c

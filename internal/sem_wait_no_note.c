@@ -28,7 +28,7 @@ NSYNC_CPP_START_
      w->sem is non-zero----decrement it and return 0.
      abs_deadline expires---return ETIMEDOUT.
      Ignores cancel_note. */
-int nsync_sem_wait_with_cancel_ (waiter *w, nsync_time abs_deadline, nsync_note *cancel_note) {
+int nsync_sem_wait_with_cancel_ (waiter *w, nsync_time abs_deadline, nsync_note cancel_note) {
 	return (nsync_mu_semaphore_p_with_deadline (&w->sem, abs_deadline));
 }
 

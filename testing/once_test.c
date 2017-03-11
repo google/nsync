@@ -18,7 +18,6 @@
 #include "nsync.h"
 #include "testing.h"
 #include "closure.h"
-#include "time_internal.h"
 #include "smprintf.h"
 
 NSYNC_CPP_USING_
@@ -65,7 +64,7 @@ static void once_func1 (void) {
         once_arg_func (&ott[1]);
 }
 
-/* Pause for a short time, then use once of the nsync_run_once* calls on
+/* Pause for a short time, then use one of the nsync_run_once* calls on
    ott->s->once, chosen using the thread id.  This is the body of each test
    thread.  */
 static void once_thread (struct once_test_thread_s *ott) {
@@ -80,7 +79,7 @@ static void once_thread (struct once_test_thread_s *ott) {
         case 2:  nsync_run_once_arg (&s->once, &once_arg_func, ott); break;
         case 3:  nsync_run_once_arg_spin (&s->once, &once_arg_func, ott); break;
         }
-        nsync_counter_add (&s->done, -1);
+        nsync_counter_add (s->done, -1);
 }
 
 CLOSURE_DECL_BODY1 (once_thread, struct once_test_thread_s *)
@@ -97,7 +96,7 @@ static void test_once_run (testing t) {
 			(struct once_test_s *) malloc (sizeof (*s));
                 s->once = NSYNC_ONCE_INIT;
                 s->counter = 0;
-                nsync_counter_init (&s->done, N);
+                s->done = nsync_counter_new (N);
                 s->t = t;
                 for (j = 0; j != N; j++) {
 			nsync_mu_lock (&ott_s_mu);
@@ -108,17 +107,22 @@ static void test_once_run (testing t) {
                         closure_fork (closure_once_thread (&once_thread,
                                                            &ott[j]));
                 }
-                if (nsync_counter_wait (&s->done,
+                if (nsync_counter_wait (s->done,
                                         nsync_time_no_deadline) != 0) {
                         TEST_ERROR (t, ("s.done not decremented to 0"));
                 }
                 if (s->counter == 0) {
                         TEST_ERROR (t, ("s.counter wasn't incremented"));
                 }
+                /* The counter is expected to be a power of two, because each
+                   counter is incremented only via a single nsync_once (so at
+                   most one increment should occur) and always by a power of
+                   two.  */
                 if ((s->counter & (s->counter-1)) != 0) {
                         TEST_ERROR (t, ("s.counter incremented repeatedly: %x",
                                         s->counter));
                 }
+		nsync_counter_free (s->done);
 		free (s);
         }
 }

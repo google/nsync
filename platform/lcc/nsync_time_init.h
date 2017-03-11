@@ -15,6 +15,10 @@
 #ifndef NSYNC_PLATFORM_LCC_NSYNC_TIME_INIT_H_
 #define NSYNC_PLATFORM_LCC_NSYNC_TIME_INIT_H_
 
-#define NSYNC_TIME_STATIC_INIT(t,ns) { (t), 0, (ns) }
+#if defined(__i386__)
+#define NSYNC_TIME_STATIC_INIT(t,ns) { (t), 0, (ns) } /* fake 64-bit time_t with 32-bit ints */
+#else
+#define NSYNC_TIME_STATIC_INIT(t,ns) { (t), (ns) }
+#endif
 
 #endif /*NSYNC_PLATFORM_LCC_NSYNC_TIME_INIT_H_*/

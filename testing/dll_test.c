@@ -16,7 +16,6 @@
 
 #include "platform.h"
 #include "nsync_time.h"
-#include "time_internal.h"
 #include "dll.h"
 #include "smprintf.h"
 #include "testing.h"
@@ -185,7 +184,7 @@ static nsync_dll_list_ make_rlist (int start, int count) {
    operations internal to the nsync_mu implementation. */
 static void test_dll (testing t) {
 	int i;
-	a_int expected = A_EMPTY;
+	a_int expected;
 	struct list_item_s *item;
 
 	nsync_dll_list_ empty = NULL;
@@ -196,6 +195,8 @@ static void test_dll (testing t) {
 	nsync_dll_list_ x30 = NULL;
 	nsync_dll_list_ x40 = NULL;
 	nsync_dll_list_ x50 = NULL;
+
+	memset (&expected, 0, sizeof (expected));
 
 	/* All lists are initially empty. */
 	verify_list (t, "empty (0)", empty, &a_int_empty, __FILE__, __LINE__);

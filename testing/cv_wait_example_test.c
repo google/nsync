@@ -21,7 +21,6 @@
 #include "closure.h"
 #include "array.h"
 #include "heap.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 

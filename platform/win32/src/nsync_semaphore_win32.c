@@ -15,14 +15,13 @@
 #include <Windows.h>
 #include "nsync_cpp.h"
 #include "nsync_time.h"
-#include "time_internal.h"
 #include "sem.h"
 
 NSYNC_CPP_START_
 
 /* Initialize *s; the initial value is 0. */
 void nsync_mu_semaphore_init (nsync_semaphore *s) {
-	HANDLE *h = (HANDLE *) &s->sem;
+	HANDLE *h = (HANDLE *) s;
 	*h = CreateSemaphore(NULL, 0, 1, NULL);
 	if (*h == NULL) {
 		abort ();
@@ -31,7 +30,7 @@ void nsync_mu_semaphore_init (nsync_semaphore *s) {
 
 /* Wait until the count of *s exceeds 0, and decrement it. */
 void nsync_mu_semaphore_p (nsync_semaphore *s) {
-	HANDLE *h = (HANDLE *) &s->sem;
+	HANDLE *h = (HANDLE *) s;
 	WaitForSingleObject(*h, INFINITE);
 }
 
@@ -39,7 +38,7 @@ void nsync_mu_semaphore_p (nsync_semaphore *s) {
    the count of *s is non-zero, in which case decrement *s and return 0;
    or abs_deadline expires, in which case return ETIMEDOUT. */
 int nsync_mu_semaphore_p_with_deadline (nsync_semaphore *s, nsync_time abs_deadline) {
-	HANDLE *h = (HANDLE *) &s->sem;
+	HANDLE *h = (HANDLE *) s;
 	int result;
 
 	if (nsync_time_cmp (abs_deadline, nsync_time_no_deadline) == 0) {
@@ -72,7 +71,7 @@ int nsync_mu_semaphore_p_with_deadline (nsync_semaphore *s, nsync_time abs_deadl
 
 /* Ensure that the count of *s is at least 1. */
 void nsync_mu_semaphore_v (nsync_semaphore *s) {
-	HANDLE *h = (HANDLE *) &s->sem;
+	HANDLE *h = (HANDLE *) s;
 	ReleaseSemaphore(*h, 1, NULL);
 }
 

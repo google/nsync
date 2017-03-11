@@ -20,20 +20,36 @@
 #include "atomic.h"
 #include "dll.h"
 #include "sem.h"
+#include "wait_internal.h"
 #include "common.h"
-#include "time_internal.h"
 
 NSYNC_CPP_START_
 
-nsync_counter *nsync_counter_init (nsync_counter *c, uint32_t value) {
-	IGNORE_RACES_START ();
-	memset (c, 0, sizeof (*c));
-	ATM_STORE (&c->value, value);
-	IGNORE_RACES_END ();
+/* Internal details of nsync_counter. */
+struct nsync_counter_s_ {
+        nsync_atomic_uint32_ waited;    /* wait has been called */
+        nsync_mu counter_mu;         /* protects fields below except reads of "value" */
+        nsync_atomic_uint32_ value;     /* value of counter */
+        struct nsync_dll_element_s_ *waiters;  /* list of waiters */
+};
+
+nsync_counter nsync_counter_new (uint32_t value) {
+	nsync_counter c = (nsync_counter) malloc (sizeof (*c));
+	if (c != NULL) {
+		memset (c, 0, sizeof (*c));
+		ATM_STORE (&c->value, value);
+	}
 	return (c);
 }
 
-uint32_t nsync_counter_add (nsync_counter *c, int32_t delta) {
+void nsync_counter_free (nsync_counter c) {
+	nsync_mu_lock (&c->counter_mu);
+	ASSERT (nsync_dll_is_empty_ (c->waiters));
+	nsync_mu_unlock (&c->counter_mu);
+	free (c);
+}
+
+uint32_t nsync_counter_add (nsync_counter c, int32_t delta) {
 	uint32_t value;
 	IGNORE_RACES_START ();
 	if (delta == 0) {
@@ -45,10 +61,12 @@ uint32_t nsync_counter_add (nsync_counter *c, int32_t delta) {
 		} while (!ATM_CAS_RELACQ (&c->value, value, value+delta));
 		value += delta;
 		if (delta > 0) {
+			/* It's illegal to increase the count from zero if
+			   there has been a waiter. */
 			ASSERT (value != (uint32_t) delta || !ATM_LOAD (&c->waited));
-			ASSERT (value > value - delta);
+			ASSERT (value > value - delta); /* Crash on overflow. */
 		} else {
-			ASSERT (value < value - delta);
+			ASSERT (value < value - delta); /* Crash on overflow. */
 		}
 		if (value == 0) {
 			nsync_dll_element_ *p;
@@ -65,7 +83,7 @@ uint32_t nsync_counter_add (nsync_counter *c, int32_t delta) {
 	return (value);
 }
 
-uint32_t nsync_counter_value (nsync_counter *c) {
+uint32_t nsync_counter_value (nsync_counter c) {
 	uint32_t result;
 	IGNORE_RACES_START ();
 	result = ATM_LOAD_ACQ (&c->value);
@@ -73,46 +91,54 @@ uint32_t nsync_counter_value (nsync_counter *c) {
 	return (result);
 }
 
-uint32_t nsync_counter_wait (nsync_counter *c, nsync_time abs_deadline) {
+uint32_t nsync_counter_wait (nsync_counter c, nsync_time abs_deadline) {
 	struct nsync_waitable_s waitable;
 	struct nsync_waitable_s *pwaitable = &waitable;
+	uint32_t result = 0;
 	waitable.v = c;
 	waitable.funcs = &nsync_counter_waitable_funcs;
-	return (nsync_wait_n (NULL, NULL, NULL, abs_deadline, 1, &pwaitable) == 0? 0:
-		ATM_LOAD_ACQ (&c->value));
+	if (nsync_wait_n (NULL, NULL, NULL, abs_deadline, 1, &pwaitable) != 0) {
+		IGNORE_RACES_START ();
+		result = ATM_LOAD_ACQ (&c->value);
+		IGNORE_RACES_END ();
+	}
+	return (result);
 }
 
 static nsync_time counter_ready_time (void *v, struct nsync_waiter_s *nw UNUSED) {
-	nsync_counter *c = (nsync_counter *) v;
+	nsync_counter c = (nsync_counter) v;
+	nsync_time r;
 	ATM_STORE (&c->waited, 1);
-	return (ATM_LOAD_ACQ (&c->value) == 0? nsync_time_zero : nsync_time_no_deadline);
+	r = (ATM_LOAD_ACQ (&c->value) == 0? nsync_time_zero : nsync_time_no_deadline);
+	return (r);
 }
 
-static nsync_time counter_enqueue (void *v, struct nsync_waiter_s *nw) {
-	nsync_counter *c = (nsync_counter *) v;
+static int counter_enqueue (void *v, struct nsync_waiter_s *nw) {
+	nsync_counter c = (nsync_counter) v;
 	int32_t value;
 	nsync_mu_lock (&c->counter_mu);
 	value = ATM_LOAD_ACQ (&c->value);
-	ATM_STORE (&nw->waiting, 0);
 	if (value != 0) {
-		c->waiters = nsync_dll_make_last_in_list_ (c->waiters, (nsync_dll_element_ *)nw->q);
+		c->waiters = nsync_dll_make_last_in_list_ (c->waiters, &nw->q);
 		ATM_STORE (&nw->waiting, 1);
+	} else {
+		ATM_STORE (&nw->waiting, 0);
 	}
 	nsync_mu_unlock (&c->counter_mu);
-	return (value == 0? nsync_time_zero : nsync_time_no_deadline);
+	return (value != 0);
 }
 
-static nsync_time counter_dequeue (void *v, struct nsync_waiter_s *nw) {
-	nsync_counter *c = (nsync_counter *) v;
+static int counter_dequeue (void *v, struct nsync_waiter_s *nw) {
+	nsync_counter c = (nsync_counter) v;
 	int32_t value;
 	nsync_mu_lock (&c->counter_mu);
 	value = ATM_LOAD_ACQ (&c->value);
 	if (ATM_LOAD_ACQ (&nw->waiting) != 0) {
-		c->waiters = nsync_dll_remove_ (c->waiters, (nsync_dll_element_ *)nw->q);
+		c->waiters = nsync_dll_remove_ (c->waiters, &nw->q);
 		ATM_STORE (&nw->waiting, 0);
 	}
 	nsync_mu_unlock (&c->counter_mu);
-	return (value == 0? nsync_time_zero : nsync_time_no_deadline);
+	return (value != 0);
 }
 
 const struct nsync_waitable_funcs_s nsync_counter_waitable_funcs = {

@@ -34,7 +34,7 @@ nsync_time nsync_time_no_deadline =
 
 nsync_time nsync_time_zero = NSYNC_TIME_STATIC_INIT (0, 0);
 
-nsync_time nsync_time_s_ns (time_t s, uint32_t ns) {
+nsync_time nsync_time_s_ns (time_t s, unsigned ns) {
 	nsync_time t;
 	t.seconds = s;
 	t.nanoseconds = ns;

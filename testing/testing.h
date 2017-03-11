@@ -55,6 +55,9 @@ void testing_panic (const char *msg);
    0  if tests should run long. */
 int testing_longshort (testing t);
 
+/* Return non-zero if the user requested verbose output. */
+int testing_verbose (testing t);
+
 /* Output a printf-formated log message associated with *t.
    Example:    TEST_LOG (t, ("wombat %d", some_int));
    The TEST_ERROR() and TEST_FATAL() forms of the call makr the test as failing.

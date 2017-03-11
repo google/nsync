@@ -21,7 +21,7 @@
 # Requires a Bourne shell, echo, expr, mkdir, uname, rm,
 # and, if the -diff option is used, diff.
 
-usage="usage: configure.sh [-diff|-out] [-dir <build_dir>]
+usage="usage: mkmakefile.sh [-diff|-out] [-dir <build_dir>]
 			[-os <os>] [-arch <arch>] [-cc <cc>]
 			[-sem futex|sem_t|mutex]
 			[-atomic c++11|c11|asm|os]
@@ -98,6 +98,7 @@ case "$os" in
 	[cC][yY][gG][wW][iI][nN]*)	os=cygwin;;
 	[oO][sS][fF]1)			os=osf1;;
 	[iI][rR][iI][xX]64)		os=irix64;;
+	[uU][lL][tT][rR][iI][xX])	os=ultrix;;
 	esac;;
 esac
 
@@ -108,6 +109,8 @@ case "$arch" in
 	[iI][3456]86|[xX]86|[xX]86_32)	arch=x86_32;;
 	[aA][mM][dD]64|[xX]86_64)	arch=x86_64;;
 	[iI][pP]35)			arch=mips;;
+	[rR][iI][sS][cC])		arch=mips;;
+	[vV][aA][xX])			arch=vax;;
 	esac;;
 esac
 
@@ -172,8 +175,8 @@ esac
 # Get C preprocessor flags.
 cppflags="-D_POSIX_C_SOURCE=200809L"  # Sometimes needed; doesn't hurt.
 # gcc's TLS doesn't work on OpenBSD or Irix.
-case "$os.$cc_type" in
-openbsd.gcc|openbsd.clang|irix64.gcc)
+case "$arch.$os.$cc_type" in
+*.openbsd.gcc|*.openbsd.clang|*.irix64.gcc)
 	cppflags="$cppflags -I../../platform/gcc_no_tls";;
 esac
 first="$cc_type"
@@ -200,11 +203,15 @@ gcc..*|clang..*)	;;
 esac
 atomic_ind=
 atomic_c=
+atomic_s=
 case "$asm_atomics" in
 true)	for x in `cd "$root_dir"; echo "platform/$arch/src/nsync_atm_$arch."[csS]`; do
-		if [ -f "$x" ]; then
+		if [ -f "$root_dir/$x" ]; then
 			atomic_ind="-I../../platform/atomic_ind "
-			atomic_c="../../$x "
+			case "$x" in
+			*.[sS]) atomic_s="../../$x";;
+			*)	atomic_c="../../$x";;
+			esac
 			break
 		fi
 	done;;
@@ -243,10 +250,11 @@ macos)	clock_gettime_src="../../platform/posix/src/clock_gettime.c ";;
 esac
 
 # Platform-specific files.
-platform_c="$atomic_c$clock_gettime_src$semfile../../platform/posix/src/per_thread_waiter.c ../../platform/posix/src/yield.c ../../platform/posix/src/time_rep.c"
+platform_c="$atomic_c$clock_gettime_src$semfile../../platform/posix/src/per_thread_waiter.c ../../platform/posix/src/yield.c ../../platform/posix/src/time_rep.c ../../platform/posix/src/nsync_panic.c"
+platform_s="$atomic_s"
 sp=
 platform_o=
-for x in $platform_c; do
+for x in $platform_s $platform_c; do
 	o=`expr "$x" : '.*/\([^/]*\)[.][^/]*$'`.o
 	platform_o="$platform_o$sp$o"
 	sp=" "
@@ -279,6 +287,7 @@ makefile=`
 			*)	echo 'MKDEP=${CC} -M';;
 			esac
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
@@ -296,6 +305,7 @@ makefile=`
 			*)	echo 'MKDEP=${CC} -M';;
 			esac
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
@@ -306,6 +316,7 @@ makefile=`
 			case "$libs" in ?*) echo "PLATFORM_LIBS=$libs";; esac
 			echo 'MKDEP=${CC} -M -x c++ -std=c++11'
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
@@ -316,6 +327,7 @@ makefile=`
 			case "$libs" in ?*) echo "PLATFORM_LIBS=$libs";; esac
 			echo 'MKDEP=${CC} -M -x c++ -std=c++11'
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
@@ -327,6 +339,7 @@ makefile=`
 			echo "MKDEP_DEPEND=mkdep"
 			echo 'MKDEP=./mkdep ${CC} -E'
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
@@ -336,6 +349,7 @@ makefile=`
 			echo "MKDEP_DEPEND=mkdep"
 			echo 'MKDEP=./mkdep ${CC} -E'
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
@@ -349,15 +363,17 @@ makefile=`
 			esac
 			echo 'MKDEP=${CC} -M'
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"
 			;;
-	*)		echo "PLATFORM_CPPFLAGS=$cppflags"
+	*)		echo "PLATFORM_CPPFLAGS=$atomic_ind$cppflags"
 			echo "PLATFORM_LIBS=$libs"
 			echo "MKDEP_DEPEND=mkdep"
 			echo 'MKDEP=./mkdep ${CC} -E'
 			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
 			echo "PLATFORM_OBJS=$platform_o"
 			echo "TEST_PLATFORM_C=$test_platform_c"
 			echo "TEST_PLATFORM_OBJS=$test_platform_o"

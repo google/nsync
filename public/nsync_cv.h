@@ -41,8 +41,8 @@ struct nsync_note_s_;
    or
        nsync_cv_broadcast (&cv); // If multiple threads can make use of the predicate becoming true.
 
-   To wait for a predicate with no deadline (assuming nsync_cv_broadcast() is called
-   whenever the predicate becomes true):
+   To wait for a predicate with no deadline (assuming nsync_cv_broadcast() or
+   nsync_cv_signal() is called whenever the predicate becomes true):
 	nsync_mu_lock (&mu;)
 	while (!some_predicate_protected_by_mu) { // the while-loop is required.
 		nsync_cv_wait (&cv, &mu);
@@ -50,8 +50,8 @@ struct nsync_note_s_;
 	// predicate is now true
 	nsync_mu_unlock (&mu);
 
-   To wait for a predicate with a deadline (assuming nsync_cv_broadcast() is called
-   whenever the predicate becomes true):
+   To wait for a predicate with a deadline (assuming nsync_cv_broadcast() or
+   nsync_cv_signal() is called whenever the predicate becomes true):
 	nsync_mu_lock (&mu);
 	while (!some_predicate_protected_by_mu &&
 	       nsync_cv_wait_with_deadline (&cv, &mu, abs_deadline, cancel_note) == 0) {
@@ -89,8 +89,10 @@ typedef struct nsync_cv_s_ {
 } nsync_cv;
 
 /* An nsync_cv should be zeroed to initialize, which can be accomplished by
-   initializing with NSYNC_CV_INIT, or setting the entire struct to 0. */
+   initializing with static initializer NSYNC_CV_INIT, or by setting the entire
+   struct to 0, or using nsync_cv_init().  */
 #define NSYNC_CV_INIT { NSYNC_ATOMIC_UINT32_INIT_, 0 }
+void nsync_cv_init (nsync_cv *cv);
 
 /* Wake at least one thread if any are currently blocked on *cv.  If
    the chosen thread is a reader on an nsync_mu, wake all readers and, if
@@ -134,7 +136,7 @@ int nsync_cv_wait_with_deadline (nsync_cv *cv, nsync_mu *mu,
 				 struct nsync_note_s_ *cancel_note);
 
 /* Like nsync_cv_wait_with_deadline(), but allow an arbitrary lock *v to be used,
-   given its (*lock)() and (*unlock)() routines.  */
+   given its (*lock)(mu) and (*unlock)(mu) routines.  */
 int nsync_cv_wait_with_deadline_generic (nsync_cv *cv,
 				   void *mu, void (*lock) (void *), void (*unlock) (void *),
 				   nsync_time abs_deadline,

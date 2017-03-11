@@ -91,7 +91,8 @@ int nsync_mu_semaphore_p_with_deadline (nsync_semaphore *s, nsync_time abs_deadl
 					ts_buf.tv_sec = NSYNC_TIME_SEC (abs_deadline);
 					ts_buf.tv_nsec = NSYNC_TIME_NSEC (abs_deadline);
 				} else {
-					nsync_time now = nsync_time_now ();
+					nsync_time now;
+					now = nsync_time_now ();
 					if (nsync_time_cmp (now, abs_deadline) > 0) {
 						ts_buf.tv_sec = 0;
 						ts_buf.tv_nsec = 0;

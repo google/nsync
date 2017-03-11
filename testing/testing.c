@@ -21,7 +21,7 @@
 #include "testing.h"
 #include "dll.h"
 #include "closure.h"
-#include "time_internal.h"
+#include "wait_internal.h"
 #include "common.h"
 
 NSYNC_CPP_USING_
@@ -41,6 +41,7 @@ struct testing_base_s {
 	char *include_pat;      /* ,- or |-separated substrings of tests to include */
 	char *exclude_pat;      /* ,- or |-separated substrings of tests to exclude */
 	int longshort;		/* 0 normal, -1 short, 1 long */
+	int verbose;		/* 0 normal; 1 verbose output */
 
 	nsync_mu testing_mu;      /* protects fields below */
 	int is_uniprocessor;      /* whether the system is a uniprocessor */
@@ -113,8 +114,11 @@ static void process_flag (testing_base tb, int *pargn, int argc, char *argv[], i
 		tb->longshort--;
 		break;
 	case 'v':
+		tb->verbose = 1;
+		break;
+	case 'x':
 		if (*pargn + 1 == argc) {
-			fprintf (stderr, "%s: -v flag expects ,- or |-separated strings\n",
+			fprintf (stderr, "%s: -x flag expects ,- or |-separated strings\n",
 				 argv[0]);
 			exit (2);
 		}
@@ -162,6 +166,10 @@ testing_base testing_new (int argc, char *argv[], int flags) {
 	return (tb);
 }
 
+int testing_verbose (testing t) {
+	return (t->base->verbose);
+}
+
 int testing_longshort (testing t) {
 	return (t->base->longshort);
 }
@@ -175,17 +183,18 @@ int testing_base_argn (testing_base tb) {
 }
 
 /* Return whether *(int *)v is zero.  Used with nsync_mu_wait().  */
-static int int_is_zero (void *v) {
-	return (*(int *)v == 0);
+static int int_is_zero (const void *v) {
+	return (*(const int *)v == 0);
 }
 
 int testing_base_exit (testing_base tb) {
 	int exit_status;
 	nsync_mu_lock (&tb->testing_mu);
-	nsync_mu_wait (&tb->testing_mu, &int_is_zero, &tb->child_count);
+	nsync_mu_wait (&tb->testing_mu, &int_is_zero, &tb->child_count, NULL);
 	exit_status = tb->exit_status;
-	exit (exit_status);
 	nsync_mu_unlock (&tb->testing_mu);
+	free (tb);
+	exit (exit_status);
 	return (exit_status);
 }
 
@@ -290,14 +299,15 @@ CLOSURE_DECL_BODY1 (testing, testing)
 
 /* Return whether there's a "spare thread"; that is, whether the current count
    of child threads is less than the allowed parallelism.  */
-static int spare_thread (void *v) {
-	testing_base tb = (testing_base) v;
+static int spare_thread (const void *v) {
+	const testing_base tb = (const testing_base) v;
 	return (tb->child_count < tb->parallelism);
 }
 
 /* Return whether nul-terminated string str[] contains a string listed in
-   comma-separated (or vertical bar-separted) strings in nul-terminaed string
-   pat[].  */
+   comma-separated (or vertical bar-separted) strings in nul-terminated string
+   pat[].  A dollar at the end of a string in pat[] matches the end of
+   string in str[]. */
 static int match (const char *pat, const char *str) {
 	static const char seps[] = ",|";
 	int found = 0;
@@ -307,14 +317,22 @@ static int match (const char *pat, const char *str) {
 	char *buf = Xbuf;
 	int i = 0;
 	while (!found && pat[i] != '\0') {
-		int e = i + strcspn (&pat[i], seps);
-		if (e - i > m) {
-			m = e - i + 128;
+		int blen = strcspn (&pat[i], seps);
+		int e = i + blen;
+		if (blen > m) {
+			m = blen + 128;
 			buf = mbuf = (char *) realloc (mbuf, m + 1);
 		}
-		strncpy (buf, &pat[i], e - i);
-		buf[e - i] = '\0';
-		found = (strstr (str, buf) != NULL);
+		strncpy (buf, &pat[i], blen);
+		buf[blen] = '\0';
+		if (blen > 0 && buf[blen - 1] == '$') {
+			int slen = strlen (str);
+			buf[--blen] = 0;
+			found = (slen >= blen &&
+				 strcmp (&str[slen-blen], buf) == 0);
+		} else {
+			found = (strstr (str, buf) != NULL);
+		}
 		i = e + strspn (&pat[e], seps);
 	}
 	free (mbuf);
@@ -345,12 +363,12 @@ void testing_run_ (testing_base tb, void (*f) (testing t), const char *name, int
 		if (!is_benchmark) {
 			if (tb->benchmarks_running) {
 				nsync_mu_lock (&tb->testing_mu);
-				nsync_mu_wait (&tb->testing_mu, &int_is_zero, &tb->child_count);
+				nsync_mu_wait (&tb->testing_mu, &int_is_zero, &tb->child_count, NULL);
 				nsync_mu_unlock (&tb->testing_mu);
 				tb->benchmarks_running = 0;
 			}
 			nsync_mu_lock (&tb->testing_mu);
-			nsync_mu_wait (&tb->testing_mu, &spare_thread, tb);
+			nsync_mu_wait (&tb->testing_mu, &spare_thread, tb, NULL);
 			tb->child_count++;
 			tb->children = nsync_dll_make_last_in_list_ (tb->children, &t->siblings);
 			nsync_mu_unlock (&tb->testing_mu);
@@ -358,7 +376,7 @@ void testing_run_ (testing_base tb, void (*f) (testing t), const char *name, int
 		} else {
 			if (!tb->benchmarks_running) {
 				nsync_mu_lock (&tb->testing_mu);
-				nsync_mu_wait (&tb->testing_mu, &int_is_zero, &tb->child_count);
+				nsync_mu_wait (&tb->testing_mu, &int_is_zero, &tb->child_count, NULL);
 				nsync_mu_unlock (&tb->testing_mu);
 				if (!tb->suppress_header) {
 					output_header (tb->fp, tb->prog);
@@ -366,7 +384,7 @@ void testing_run_ (testing_base tb, void (*f) (testing t), const char *name, int
 				tb->benchmarks_running = 1;
 			}
 			nsync_mu_lock (&tb->testing_mu);
-			nsync_mu_wait (&tb->testing_mu, &spare_thread, tb);
+			nsync_mu_wait (&tb->testing_mu, &spare_thread, tb, NULL);
 			tb->child_count++;
 			tb->children = nsync_dll_make_last_in_list_ (tb->children, &t->siblings);
 			nsync_mu_unlock (&tb->testing_mu);
@@ -479,25 +497,8 @@ void testing_error_ (testing t, int test_status, const char *file, int line, cha
 	free (msg);
 }
 
-/* Write the nul-terminated string s[] to  file descriptor fd. */
-static void writestr (int fd, const char *s) {
-	int len = strlen (s);
-	int n = 0;
-	while (len != 0 && n >= 0) {
-		n = write (fd, s, len);
-		if (n >= 0) {
-			len -= n;
-			s += n;
-		} else if (n == -1 && errno == EINTR) {
-			n = 0;
-		}
-	}
-}
-
-/* Abort after printing the string s. */
+/* Abort after printing the nul-terminated string s[]. */
 void testing_panic (const char *s) {
 	nsync_atm_log_print_ ();
-	writestr (2, "panic: ");
-	writestr (2, s);
-	abort ();
+	nsync_panic_ (s);
 }

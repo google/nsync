@@ -2,7 +2,7 @@ PLATFORM_CPPFLAGS=/I../../platform/msvc /I../../platform/win32 /I../../platform/
 PLATFORM_CFLAGS=/nologo /MT
 PLATFORM_LDFLAGS=/nologo /MT
 
-PLATFORM_OBJS=nsync_semaphore_win32.OBJ pthread_cond_timedwait_win32.OBJ init_callback_win32.OBJ yield.OBJ per_thread_waiter.OBJ clock_gettime.OBJ nanosleep.OBJ time_rep.OBJ pthread_key_win32.OBJ
+PLATFORM_OBJS=nsync_semaphore_win32.OBJ pthread_cond_timedwait_win32.OBJ init_callback_win32.OBJ yield.OBJ per_thread_waiter.OBJ clock_gettime.OBJ nanosleep.OBJ time_rep.OBJ nsync_panic.OBJ pthread_key_win32.OBJ
 TEST_PLATFORM_OBJS=start_thread.OBJ
 
 # ---------------------------------------------
@@ -23,7 +23,7 @@ TESTS=counter_test.EXE cv_mu_timeout_stress_test.EXE cv_test.EXE cv_wait_example
 
 TEST_OBJS=counter_test.OBJ cv_mu_timeout_stress_test.OBJ cv_test.OBJ cv_wait_example_test.OBJ dll_test.OBJ mu_starvation_test.OBJ mu_test.OBJ mu_wait_example_test.OBJ mu_wait_test.OBJ note_test.OBJ once_test.OBJ pingpong_test.OBJ wait_test.OBJ
 TEST_LIB_OBJS=array.OBJ atm_log.OBJ closure.OBJ time_extra.OBJ smprintf.OBJ testing.OBJ $(TEST_PLATFORM_OBJS)
-LIB_OBJS=common.OBJ counter.OBJ cv.OBJ dll.OBJ mu.OBJ mu_wait.OBJ note.OBJ time_internal.OBJ once.OBJ sem_wait.OBJ wait.OBJ $(PLATFORM_OBJS)
+LIB_OBJS=common.OBJ counter.OBJ cv.OBJ debug.OBJ dll.OBJ mu.OBJ mu_wait.OBJ note.OBJ time_internal.OBJ once.OBJ sem_wait.OBJ wait.OBJ $(PLATFORM_OBJS)
 XLIB=nsync.LIB
 TEST_LIB=nsync_test.LIB
 
@@ -57,7 +57,7 @@ depend: mkdep.EXE
 	mkdep $(CC) /nologo /E $(CPPFLAGS) 2> NUL \
 		$(INTERNAL)/common.c $(INTERNAL)/mu.c $(INTERNAL)/sem_wait.c \
 		$(INTERNAL)/counter.c $(INTERNAL)/mu_wait.c $(INTERNAL)/sem_wait_no_note.c \
-		$(INTERNAL)/cv.c $(INTERNAL)/note.c $(INTERNAL)/time_internal.c \
+		$(INTERNAL)/cv.c $(INTERNAL)/debug.c $(INTERNAL)/note.c $(INTERNAL)/time_internal.c \
 		$(INTERNAL)/dll.c $(INTERNAL)/once.c $(INTERNAL)/wait.c \
 		$(TESTING)/array.c $(TESTING)/mu_test.c $(TESTING)/atm_log.c \
 		$(TESTING)/mu_wait_example_test.c $(TESTING)/closure.c $(TESTING)/mu_wait_test.c \
@@ -95,12 +95,16 @@ nanosleep.OBJ: ../../platform/win32/src/nanosleep.c
 time_rep.OBJ: ../../platform/posix/src/time_rep.c
 	$(CC) $(CFLAGS) /c ../../platform/posix/src/time_rep.c
 
+nsync_panic.OBJ: ../../platform/posix/src/nsync_panic.c
+	$(CC) $(CFLAGS) /c ../../platform/posix/src/nsync_panic.c
+
 pthread_key_win32.OBJ: ../../platform/win32/src/pthread_key_win32.cc
 	$(CC) $(CFLAGS) /c ../../platform/win32/src/pthread_key_win32.cc
 
 common.OBJ: $(INTERNAL)/common.c; $(CC) $(CFLAGS) /c $(INTERNAL)/common.c
 counter.OBJ: $(INTERNAL)/counter.c; $(CC) $(CFLAGS) /c $(INTERNAL)/counter.c
 cv.OBJ: $(INTERNAL)/cv.c; $(CC) $(CFLAGS) /c $(INTERNAL)/cv.c
+debug.OBJ: $(INTERNAL)/debug.c; $(CC) $(CFLAGS) /c $(INTERNAL)/debug.c
 dll.OBJ: $(INTERNAL)/dll.c; $(CC) $(CFLAGS) /c $(INTERNAL)/dll.c
 mu.OBJ: $(INTERNAL)/mu.c; $(CC) $(CFLAGS) /c $(INTERNAL)/mu.c
 mu_wait.OBJ: $(INTERNAL)/mu_wait.c; $(CC) $(CFLAGS) /c $(INTERNAL)/mu_wait.c

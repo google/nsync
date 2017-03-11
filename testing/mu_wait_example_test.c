@@ -21,7 +21,6 @@
 #include "closure.h"
 #include "array.h"
 #include "heap.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 
@@ -50,8 +49,8 @@ typedef struct string_priority_queue_mu_s {
 } string_priority_queue_mu;
 
 /* A wait condition for non-empty. */
-static int spq_is_non_empty (void *v) {
-	string_priority_queue_mu *q = (string_priority_queue_mu *) v;
+static int spq_is_non_empty (const void *v) {
+	const string_priority_queue_mu *q = (const string_priority_queue_mu *) v;
 	return (A_LEN (&q->heap) != 0);
 }
 
@@ -72,7 +71,8 @@ static const char *string_priority_queue_mu_remove_with_deadline (
 		string_priority_queue_mu *q, nsync_time abs_deadline) {
 	const char *s = NULL;
 	nsync_mu_lock (&q->mu);
-	if (nsync_mu_wait_with_deadline (&q->mu, &spq_is_non_empty, q, abs_deadline, NULL) == 0) {
+	if (nsync_mu_wait_with_deadline (&q->mu, &spq_is_non_empty, q, NULL,
+					 abs_deadline, NULL) == 0) {
 		int alen = A_LEN (&q->heap);
 		if (alen != 0) {
 			s = A (&q->heap, 0);

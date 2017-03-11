@@ -16,40 +16,46 @@
 #define NSYNC_PUBLIC_NSYNC_TIME_H_
 
 #include "nsync_cpp.h"
+#include "nsync_time_internal.h"
 
-/* This file is not to be included directly by the client.  It exists because
-   different environments insist on different representations of time,
-   sometimes because they allow their realtime clocks to go backwards (!).  */
+/* The type nsync_time represents the interval elapsed between two moments in
+   time.  Often the first such moment is an address-space-wide epoch, such as
+   the Unix epoch, but clients should not rely on the epoch in one address
+   space being the same as that in another.  Intervals relative to the epoch
+   are known as absolute times.
 
-#if NSYNC_USE_GPR_TIMESPEC
-#include "grpc/support/time.h"
+   The internals of nsync_time should be treated as opaque by clients.
+   See nsync_time_internal.h. */
+
 NSYNC_CPP_START_
-typedef gpr_timespec nsync_time;
-#define NSYNC_TIME_SEC(t) ((t).tv_sec)
-#define NSYNC_TIME_NSEC(t) ((t).tv_nsec)
-NSYNC_CPP_END_
 
-#elif NSYNC_USE_DEBUG_TIME
-/* Check that the library can be built with a different time struct.  */
-#include <time.h>
-NSYNC_CPP_START_
-typedef struct {
-	time_t seconds;
-	unsigned nanoseconds;
-} nsync_time;
-#define NSYNC_TIME_SEC(t) ((t).seconds)
-#define NSYNC_TIME_NSEC(t) ((t).nanoseconds)
-NSYNC_CPP_END_
+extern nsync_time nsync_time_no_deadline; /* A deadline infinitely far in the future. */
+extern nsync_time nsync_time_zero;  /* The zero delay, or an expired deadline. */
 
-#else
-/* Default is to use timespec. */
-struct timespec;
-NSYNC_CPP_START_
-typedef struct timespec nsync_time;
-#define NSYNC_TIME_SEC(t) ((t).tv_sec)
-#define NSYNC_TIME_NSEC(t) ((t).tv_nsec)
-NSYNC_CPP_END_
+nsync_time nsync_time_now (void); /* Return the current time since the epoch.  */
 
-#endif
+/* Sleep for the specified delay.  Returns the unslept time
+   which may be non-zero if the call was interrupted. */
+nsync_time nsync_time_sleep (nsync_time delay);
+
+/* Return a+b */
+nsync_time nsync_time_add (nsync_time a, nsync_time b);
+
+/* Return a-b */
+nsync_time nsync_time_sub (nsync_time a, nsync_time b);
+
+/*  Return +ve, 0, or -ve according to whether a>b, a==b, or a<b. */
+int nsync_time_cmp (nsync_time a, nsync_time b);
+
+/* Return the specified number of milliseconds as a time. */
+nsync_time nsync_time_ms (unsigned ms);
+
+/* Return the specified number of microseconds as a time. */
+nsync_time nsync_time_us (unsigned us);
+
+/* Return an nsync_time constructed from second and nanosecond components */
+nsync_time nsync_time_s_ns (time_t s, unsigned ns);
+
+NSYNC_CPP_END_
 
 #endif /*NSYNC_PUBLIC_NSYNC_TIME_H_*/

@@ -19,17 +19,45 @@
 #include "nsync.h"
 #include "dll.h"
 #include "sem.h"
+#include "wait_internal.h"
 #include "common.h"
 #include "atomic.h"
-#include "time_internal.h"
 
 NSYNC_CPP_START_
 
+/* An once_sync_s struct contains a lock, and a condition variable on which
+   threads may wait for an nsync_once to be initialized by another thread.
+
+   A separate struct is used only to keep nsync_once small.
+
+   A given nsync_once can be associated with any once_sync_s struct, but cannot
+   be associated with more than one.  nsync_once instances are mapped to
+   once_sync_s instances by a trivial hashing scheme implemented by
+   NSYNC_ONCE_SYNC_().
+
+   The number of once_sync_s structs in the following array is greater than one
+   only to reduce the probability of contention if a great many distinct
+   nsync_once variables are initialized concurrently.  */
 static struct once_sync_s {
 	nsync_mu once_mu;
 	nsync_cv once_cv;
 } once_sync[64];
 
+/* Return a pointer to the once_sync_s struct associated with the nsync_once *p. */
+#define NSYNC_ONCE_SYNC_(p) &once_sync[(((uintptr_t) (p)) / sizeof (*(p))) % \
+				       (sizeof (once_sync) / sizeof (once_sync[0]))]
+
+/* Implement nsync_run_once, nsync_run_once_arg, nsync_run_once_spin, or
+   nsync_run_once_arg_spin, chosen as described below.
+
+   If s!=NULL, s is required to point to the once_sync_s associated with *once,
+   and the semantics of nsync_run_once or nsync_run_once_arg are provided.
+   If s==NULL, the semantics of nsync_run_once_spin, or nsync_run_once_arg_spin
+   are provided.
+   
+   If f!=NULL, the semantics of nsync_run_once or nsync_run_once_spin are
+   provided.  Otherwise, farg is required to be non-NULL, and the semantics of
+   nsync_run_once_arg or nsync_run_once_arg_spin are provided.  */
 static void nsync_run_once_impl (nsync_once *once, struct once_sync_s *s,
 				 void (*f) (void), void (*farg) (void *arg), void *arg) {
 	uint32_t o = ATM_LOAD_ACQ (once);
@@ -79,8 +107,7 @@ void nsync_run_once (nsync_once *once, void (*f) (void)) {
 	IGNORE_RACES_START ();
 	o = ATM_LOAD_ACQ (once);
 	if (o != 2) {
-		struct once_sync_s *s = &once_sync[(((uintptr_t) once) / sizeof (*once)) %
-						(sizeof (once_sync) / sizeof (once_sync[0]))];
+		struct once_sync_s *s = NSYNC_ONCE_SYNC_ (once);
 		nsync_run_once_impl (once, s, f, NULL, NULL);
 	}
 	IGNORE_RACES_END ();
@@ -91,8 +118,7 @@ void nsync_run_once_arg (nsync_once *once, void (*farg) (void *arg), void *arg) 
 	IGNORE_RACES_START ();
 	o = ATM_LOAD_ACQ (once);
 	if (o != 2) {
-		struct once_sync_s *s = &once_sync[(((uintptr_t) once) / sizeof (*once)) %
-						(sizeof (once_sync) / sizeof (once_sync[0]))];
+		struct once_sync_s *s = NSYNC_ONCE_SYNC_ (once);
 		nsync_run_once_impl (once, s, NULL, farg, arg);
 	}
 	IGNORE_RACES_END ();

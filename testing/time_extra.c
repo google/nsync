@@ -14,7 +14,6 @@
 
 #include "platform.h"
 #include "nsync_time.h"
-#include "time_internal.h"
 #include "time_extra.h"
 #include "smprintf.h"
 #include "nsync_cpp.h"

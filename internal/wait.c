@@ -19,9 +19,9 @@
 #include "nsync.h"
 #include "sem.h"
 #include "dll.h"
+#include "wait_internal.h"
 #include "common.h"
 #include "atomic.h"
-#include "time_internal.h"
 
 NSYNC_CPP_START_
 
@@ -36,55 +36,54 @@ int nsync_wait_n (void *mu, void (*lock) (void *), void (*unlock) (void *),
 					nsync_time_zero) > 0;
 	     ready++) {
 	}
-	if (ready == count) {
+	if (ready == count && nsync_time_cmp (abs_deadline, nsync_time_zero) > 0) {
 		int i;
 		int unlocked = 0;
 		int j;
-		nsync_time ntime;
+		int enqueued = 1;
 		waiter *w = nsync_waiter_new_ ();
 		struct nsync_waiter_s nw_set[4];
 		struct nsync_waiter_s *nw = nw_set;
-		ntime = nsync_time_s_ns (1, 1);
 		if (count > (int) (sizeof (nw_set) / sizeof (nw_set[0]))) {
 			nw = (struct nsync_waiter_s *) malloc (count * sizeof (nw[0]));
 		}
-		for (i = 0; i != count && nsync_time_cmp (ntime, nsync_time_zero) > 0; i++) {
+		for (i = 0; i != count && enqueued; i++) {
 			nw[i].tag = NSYNC_WAITER_TAG;
 			nw[i].sem = &w->sem;
-			nsync_dll_init_ ((nsync_dll_element_ *)nw[i].q, &nw[i]);
+			nsync_dll_init_ (&nw[i].q, &nw[i]);
 			ATM_STORE (&nw[i].waiting, 0);
 			nw[i].flags = 0;
-			ntime = (*waitable[i]->funcs->enqueue) (waitable[i]->v, &nw[i]);
+			enqueued = (*waitable[i]->funcs->enqueue) (waitable[i]->v, &nw[i]);
 		}
 
 		if (i == count) {
 			nsync_time min_ntime;
-			nsync_time local_abs_deadline;
 			if (mu != NULL) {
 				(*unlock) (mu);
 				unlocked = 1;
 			}
 			do {
-				min_ntime = nsync_time_no_deadline;
+				min_ntime = abs_deadline;
 				for (j = 0; j != count; j++) {
+					nsync_time ntime;
 					ntime = (*waitable[j]->funcs->ready_time) (
 						waitable[j]->v, &nw[j]);
 					if (nsync_time_cmp (ntime, min_ntime) < 0) {
 						min_ntime = ntime;
 					}
 				}
-				local_abs_deadline = min_ntime;
-				if (nsync_time_cmp (abs_deadline, local_abs_deadline) < 0) {
-					local_abs_deadline = abs_deadline;
-				}
 			} while (nsync_time_cmp (min_ntime, nsync_time_zero) > 0 &&
 				 nsync_mu_semaphore_p_with_deadline (&w->sem,
-					local_abs_deadline) == 0);
+					min_ntime) == 0);
 		}
 
+		/* An attempt was made above to enqueue waitable[0..i-1].
+                   Dequeue any that are still enqueued, and remember the index
+                   of the first ready (i.e., not still enqueued) object, if any.  */
 		for (j = 0; j != i; j++) {
-			ntime = (*waitable[j]->funcs->dequeue) (waitable[j]->v, &nw[j]);
-			if (nsync_time_cmp (ntime, nsync_time_zero) == 0 && ready == count) {
+			int was_still_enqueued =
+				(*waitable[j]->funcs->dequeue) (waitable[j]->v, &nw[j]);
+			if (!was_still_enqueued && ready == count) {
 				ready = j;
 			}
 		}

@@ -19,20 +19,16 @@
 #include "nsync.h"
 #include "dll.h"
 #include "sem.h"
+#include "wait_internal.h"
 #include "common.h"
 #include "atomic.h"
-#include "time_internal.h"
 
 NSYNC_CPP_START_
 
-/* Bits in nsync_cv.word */
-
-#define CV_SPINLOCK ((uint32_t) (1 << 0)) /* protects waiters */
-#define CV_NON_EMPTY ((uint32_t) (1 << 1)) /* waiters list is non-empty */
-
-static struct nsync_waiter_s *assert_nwq_size =
-	(struct nsync_waiter_s *)(uintptr_t)(1 /
-	(sizeof (assert_nwq_size->q) >= sizeof (nsync_dll_element_)));
+/* Initialize *cv. */
+void nsync_cv_init (nsync_cv *cv) {
+        memset (cv, 0, sizeof (*cv));
+}
 
 /* Wake the cv waiters in the circular list pointed to by
    to_wake_list, which may not be NULL.  If the waiter is associated with a
@@ -61,17 +57,11 @@ static void wake_waiters (nsync_dll_list_ to_wake_list, int all_readers) {
 		   */
 		uint32_t old_mu_word = ATM_LOAD (&pmu->word);
 		int first_cant_acquire = ((old_mu_word & first_w->l_type->zero_to_acquire) != 0);
-		/* set_desig_waker==MU_DESIG_WAKER if a thread is to be woken
-		   rather than transferred */
-		uint32_t set_desig_waker = 0;
-		if (!first_cant_acquire) {
-			set_desig_waker = MU_DESIG_WAKER;
-		}
 		next = nsync_dll_next_ (to_wake_list, first_waiter);
 		if ((old_mu_word&MU_SPINLOCK) == 0 &&
 		    (first_cant_acquire || (first_waiter != next && !all_readers)) &&
 		    ATM_CAS_ACQ (&pmu->word, old_mu_word,
-				 (old_mu_word|MU_SPINLOCK|MU_WAITING|set_desig_waker) &
+				 (old_mu_word|MU_SPINLOCK|MU_WAITING) &
 				 ~MU_ALL_FALSE)) {
 
 			uint32_t set_on_release = 0;
@@ -183,7 +173,7 @@ static void wake_waiters (nsync_dll_list_ to_wake_list, int all_readers) {
 int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 					 void (*lock) (void *), void (*unlock) (void *),
 					 nsync_time abs_deadline,
-					 nsync_note *cancel_note) {
+					 nsync_note cancel_note) {
 	nsync_mu *cv_mu = NULL;
 	int is_reader_mu;
 	uint32_t old_word;
@@ -197,6 +187,7 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 	ATM_STORE (&w->nw.waiting, 1);
 	w->cond.f = NULL; /* Not using a conditional critical section. */
 	w->cond.v = NULL;
+	w->cond.eq = NULL;
 	if (lock == (void (*) (void *)) & nsync_mu_lock ||
 	    lock == (void (*) (void *)) & nsync_mu_rlock) {
 		cv_mu = (nsync_mu *) pmu;
@@ -225,7 +216,7 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 
 	/* acquire spinlock, set non-empty */
 	old_word = nsync_spin_test_and_set_ (&pcv->word, CV_SPINLOCK, CV_SPINLOCK|CV_NON_EMPTY, 0);
-	pcv->waiters = nsync_dll_make_last_in_list_ (pcv->waiters, (nsync_dll_element_ *)&w->nw.q);
+	pcv->waiters = nsync_dll_make_last_in_list_ (pcv->waiters, &w->nw.q);
 	remove_count = ATM_LOAD (&w->remove_count);
 	/* Release the spin lock. */
 	ATM_STORE_REL (&pcv->word, old_word|CV_NON_EMPTY); /* release store */
@@ -264,7 +255,7 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 					   timeout/cancellation.  */
 					outcome = sem_outcome;
 					pcv->waiters = nsync_dll_remove_ (pcv->waiters,
-								  (nsync_dll_element_ *)&w->nw.q);
+								          &w->nw.q);
 					do {    
 						old_value = ATM_LOAD (&w->remove_count);
 					} while (!ATM_CAS (&w->remove_count, old_value, old_value+1));
@@ -279,7 +270,12 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 		}
 
 		if (ATM_LOAD (&w->nw.waiting) != 0) {
-			attempts = nsync_spin_delay_ (attempts); /* so we will ultimately yield. */
+                        /* The delay here causes this thread ultimately to
+                           yield to another that has dequeued this thread, but
+                           has not yet set the waiting field to zero; a
+                           cancellation or timeout may prevent this thread
+                           from blocking above on the semaphore.  */
+			attempts = nsync_spin_delay_ (attempts);
 		}
 	}
 
@@ -332,7 +328,16 @@ void nsync_cv_signal (nsync_cv *pcv) {
 			    DLL_WAITER (first)->l_type == nsync_reader_type_) {
 				int woke_writer;
 				/* If the first waiter is a reader, wake all readers, and
-				   if it's possible, one writer. */
+				   if it's possible, one writer.  This allows reader-regions
+				   to be added to a monitor without invalidating code in which
+				   a client has optimized broadcast calls by converting them to 
+				   signal calls.  In particular, we wake a writer when waking
+				   readers because the readers will not invalidate the condition
+				   that motivated the client to call nsync_cv_signal().  But we
+				   wake at most one writer because the first writer may invalidate
+				   the condition; the client is expecting only one writer to be
+				   able make use of the wakeup, or he would have called
+				   nsync_cv_broadcast().  */
 				nsync_dll_element_ *p = NULL;
 				nsync_dll_element_ *next = NULL;
 				all_readers = 1;
@@ -419,7 +424,7 @@ void nsync_cv_broadcast (nsync_cv *pcv) {
 /* Wait with deadline, using an nsync_mu. */
 int nsync_cv_wait_with_deadline (nsync_cv *pcv, nsync_mu *pmu,
 				 nsync_time abs_deadline,
-				 nsync_note *cancel_note) {
+				 nsync_note cancel_note) {
 	return (nsync_cv_wait_with_deadline_generic (pcv, pmu, (void (*) (void *)) &nsync_mu_lock,
 						     (void (*) (void *)) &nsync_mu_unlock,
 						     abs_deadline, cancel_note));
@@ -436,37 +441,38 @@ void nsync_cv_wait (nsync_cv *pcv, nsync_mu *pmu) {
 }
 
 static nsync_time cv_ready_time (void *v UNUSED, struct nsync_waiter_s *nw) {
-	return (nw == NULL || ATM_LOAD_ACQ (&nw->waiting) != 0? nsync_time_no_deadline : nsync_time_zero);
+	nsync_time r;
+	r = (nw == NULL || ATM_LOAD_ACQ (&nw->waiting) != 0? nsync_time_no_deadline : nsync_time_zero);
+	return (r);
 }
 
-static nsync_time cv_enqueue (void *v, struct nsync_waiter_s *nw) {
+static int cv_enqueue (void *v, struct nsync_waiter_s *nw) {
 	nsync_cv *pcv = (nsync_cv *) v;
 	/* acquire spinlock */
 	uint32_t old_word = nsync_spin_test_and_set_ (&pcv->word, CV_SPINLOCK, CV_SPINLOCK, 0);
-	pcv->waiters = nsync_dll_make_last_in_list_ (pcv->waiters, (nsync_dll_element_ *)nw->q);
+	pcv->waiters = nsync_dll_make_last_in_list_ (pcv->waiters, &nw->q);
 	ATM_STORE (&nw->waiting, 1);
 	/* Release spinlock. */
 	ATM_STORE_REL (&pcv->word, old_word | CV_NON_EMPTY); /* release store */
-	return (nsync_time_no_deadline);
+	return (1);
 }
 
-static nsync_time cv_dequeue (void *v, struct nsync_waiter_s *nw) {
+static int cv_dequeue (void *v, struct nsync_waiter_s *nw) {
 	nsync_cv *pcv = (nsync_cv *) v;
-	nsync_time woken;
+	int was_queued = 0;
 	/* acquire spinlock */
 	uint32_t old_word = nsync_spin_test_and_set_ (&pcv->word, CV_SPINLOCK, CV_SPINLOCK, 0);
-	woken = nsync_time_zero;
 	if (ATM_LOAD_ACQ (&nw->waiting) != 0) {
-		pcv->waiters = nsync_dll_remove_ (pcv->waiters, (nsync_dll_element_ *)nw->q);
+		pcv->waiters = nsync_dll_remove_ (pcv->waiters, &nw->q);
 		ATM_STORE (&nw->waiting, 0);
-		woken = nsync_time_no_deadline;
+		was_queued = 1;
 	}
 	if (nsync_dll_is_empty_ (pcv->waiters)) {
 		old_word &= ~(CV_NON_EMPTY);
 	}
 	/* Release spinlock. */
 	ATM_STORE_REL (&pcv->word, old_word); /* release store */
-	return (woken);
+	return (was_queued);
 }
 
 const struct nsync_waitable_funcs_s nsync_cv_waitable_funcs = {

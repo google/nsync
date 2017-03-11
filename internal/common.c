@@ -22,6 +22,7 @@
 #include "atomic.h"
 #include "sem.h"
 #include "dll.h"
+#include "wait_internal.h"
 #include "common.h"
 
 NSYNC_CPP_START_
@@ -95,9 +96,9 @@ unsigned nsync_spin_delay_ (unsigned attempts) {
 	return (attempts);
 }
 
-/* Spin until (*w & test) == 0.  It then atomically performs
-   *w |= set and returns the previous value of *w.  It performs an acquire
-   barrier. */
+/* Spin until (*w & test) == 0, then atomically perform *w = ((*w | set) &
+   ~clear), perform an acquire barrier, and return the previous value of *w.
+   */
 uint32_t nsync_spin_test_and_set_ (nsync_atomic_uint32_ *w, uint32_t test,
 				   uint32_t set, uint32_t clear) {
 	unsigned attempts = 0; /* CV_SPINLOCK retry count */
@@ -109,34 +110,12 @@ uint32_t nsync_spin_test_and_set_ (nsync_atomic_uint32_ *w, uint32_t test,
 	return (old);
 }
 
-/* Write the nul-terminated string s[] to file descriptor fd. */
-static void writestr (int fd, const char *s) {
-	int len = strlen (s);
-	int n = 0;
-	while (len != 0 && n >= 0) {
-		n = write (fd, s, len);
-		if (n >= 0) {
-			len -= n;
-			s += n;
-		} else if (n == -1 && errno == EINTR) {
-			n = 0;
-		}
-	}
-}
-
-/* Abort after printing the string s. */
-void nsync_panic_ (const char *s) {
-	writestr (2, "panic: ");
-	writestr (2, s);
-	abort ();
-}
-
 /* ====================================================================================== */
 
 struct nsync_waiter_s *nsync_dll_nsync_waiter_ (nsync_dll_element_ *e) {
 	struct nsync_waiter_s *nw = (struct nsync_waiter_s *) e->container;
 	ASSERT (nw->tag == NSYNC_WAITER_TAG);
-	ASSERT (e == (nsync_dll_element_ *) nw->q);
+	ASSERT (e == &nw->q);
 	return (nw);
 }
 waiter *nsync_dll_waiter_ (nsync_dll_element_ *e) {
@@ -144,7 +123,7 @@ waiter *nsync_dll_waiter_ (nsync_dll_element_ *e) {
 	waiter *w = CONTAINER (waiter, nw, nw);
 	ASSERT ((nw->flags & NSYNC_WAITER_FLAG_MUCV) != 0);
 	ASSERT (w->tag == WAITER_TAG);
-	ASSERT (e == (nsync_dll_element_ *) w->nw.q);
+	ASSERT (e == &w->nw.q);
 	return (w);
 }
 
@@ -169,10 +148,18 @@ static void waiter_destroy (void *v) {
 	ASSERT ((w->flags & (WAITER_RESERVED|WAITER_IN_USE)) == WAITER_RESERVED);
 	w->flags &= ~WAITER_RESERVED;
 	nsync_spin_test_and_set_ (&free_waiters_mu, 1, 1, 0);
-	free_waiters = nsync_dll_make_first_in_list_ (free_waiters, (nsync_dll_element_ *)&w->nw.q);
+	free_waiters = nsync_dll_make_first_in_list_ (free_waiters, &w->nw.q);
 	ATM_STORE_REL (&free_waiters_mu, 0); /* release store */
 	IGNORE_RACES_END ();
 }
+
+/* If non-nil, nsync_malloc_ptr_ points to a malloc-like routine that allocated
+   memory, used by mutex and condition variable code to allocate waiter
+   structs.  This would allow nsync's mutexes to be used inside an
+   implementation of malloc(), by providing another, simpler allocator here.
+   The intent is that the implicit NULL value here can be overridden by a
+   client declaration that uses an initializer.  */
+void *(*nsync_malloc_ptr_) (size_t size);
 
 /* Return a pointer to an unused waiter struct.
    Ensures that the enclosed timer is stopped and its channel drained. */
@@ -196,12 +183,16 @@ waiter *nsync_waiter_new_ (void) {
 		}
 		ATM_STORE_REL (&free_waiters_mu, 0); /* release store */
 		if (w == NULL) { /* If free list was empty, allocate an item. */
-			w = (waiter *) malloc (sizeof (*w));
+			if (nsync_malloc_ptr_ != NULL) { /* Use client's malloc() */
+				w = (waiter *) (*nsync_malloc_ptr_) (sizeof (*w));
+			} else {  /* standard malloc () */
+				w = (waiter *) malloc (sizeof (*w));
+			}
 			w->tag = WAITER_TAG;
 			w->nw.tag = NSYNC_WAITER_TAG;
 			nsync_mu_semaphore_init (&w->sem);
 			w->nw.sem = &w->sem;
-			nsync_dll_init_ ((nsync_dll_element_ *)&w->nw.q, &w->nw);
+			nsync_dll_init_ (&w->nw.q, &w->nw);
 			NSYNC_ATOMIC_UINT32_STORE_ (&w->nw.waiting, 0);
 			w->nw.flags = NSYNC_WAITER_FLAG_MUCV;
 			ATM_STORE (&w->remove_count, 0);
@@ -226,7 +217,7 @@ void nsync_waiter_free_ (waiter *w) {
 	w->flags &= ~WAITER_IN_USE;
 	if ((w->flags & WAITER_RESERVED) == 0) {
 		nsync_spin_test_and_set_ (&free_waiters_mu, 1, 1, 0);
-		free_waiters = nsync_dll_make_first_in_list_ (free_waiters, (nsync_dll_element_ *)&w->nw.q);
+		free_waiters = nsync_dll_make_first_in_list_ (free_waiters, &w->nw.q);
 		ATM_STORE_REL (&free_waiters_mu, 0); /* release store */
 	}
 }

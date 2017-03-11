@@ -17,7 +17,6 @@
 #include "smprintf.h"
 #include "testing.h"
 #include "closure.h"
-#include "time_internal.h"
 
 NSYNC_CPP_USING_
 
@@ -173,57 +172,57 @@ CLOSURE_DECL_BODY2 (cv_stress_reader_loop, cv_stress_data *, uintmax_t)
 
 /* ---------------------------
    The various conditions that threads wait for on cv_stress_data. */
-static int count_is0mod4 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is0mod4 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count & 3) == 0);
 }
-static int count_is1mod4 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is1mod4 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count & 3) == 1);
 }
-static int count_is2mod4 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is2mod4 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count & 3) == 2);
 }
-static int count_is3mod4 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is3mod4 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count & 3) == 3);
 }
-static int count_is0mod4or_refs_is0 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is0mod4or_refs_is0 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count&3) == 0 || s->refs == 0);
 }
-static int count_is1mod4or_refs_is0 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is1mod4or_refs_is0 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count&3) == 1 || s->refs == 0);
 }
-static int count_is2mod4or_refs_is0 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is2mod4or_refs_is0 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count&3) == 2 || s->refs == 0);
 }
-static int count_is3mod4or_refs_is0 (void *v) {
-	cv_stress_data *s = (cv_stress_data *) v;
+static int count_is3mod4or_refs_is0 (const void *v) {
+	const cv_stress_data *s = (const cv_stress_data *) v;
 	nsync_mu_rassert_held (&s->mu);
 	return ((s->count&3) == 3 || s->refs == 0);
 }
 
 /* --------------------------- */
 
-typedef int (*condition_func) (void *);
+typedef int (*condition_func) (const void *);
 
 /* Acquire s.mu, then increment s.count n times, each time
    waiting until condition is true.  Use a random delay between 0us and 999us
    for each wait; if the timeout expires, increment s.timeouts, and
    the retry the wait.  Decrement s.refs before returning. */
 static void mu_stress_inc_loop (cv_stress_data *s, condition_func condition,
-				void *condition_arg) {
+				const void *condition_arg) {
 	uintmax_t i;
 	nsync_mu_lock (&s->mu);
 	nsync_mu_assert_held (&s->mu);
@@ -233,8 +232,8 @@ static void mu_stress_inc_loop (cv_stress_data *s, condition_func condition,
 
 		abs_deadline = nsync_time_add (nsync_time_now (),
 			nsync_time_us (rand () % STRESS_MAX_DELAY_MICROS));
-		while (nsync_mu_wait_with_deadline (&s->mu, condition,
-						    condition_arg, abs_deadline, NULL) != 0) {
+		while (nsync_mu_wait_with_deadline (&s->mu, condition, condition_arg, NULL,
+						    abs_deadline, NULL) != 0) {
 			nsync_mu_assert_held (&s->mu);
 			s->timeouts++;
 			nsync_mu_assert_held (&s->mu);
@@ -261,7 +260,7 @@ static void mu_stress_inc_loop (cv_stress_data *s, condition_func condition,
 	nsync_mu_unlock (&s->mu);
 }
 
-CLOSURE_DECL_BODY3 (mu_stress_inc_loop, cv_stress_data *, condition_func, void *)
+CLOSURE_DECL_BODY3 (mu_stress_inc_loop, cv_stress_data *, condition_func, const void *)
 
 
 /* Acquire s.u in reader mode, and wait until a
@@ -272,7 +271,7 @@ CLOSURE_DECL_BODY3 (mu_stress_inc_loop, cv_stress_data *, condition_func, void *
    the number of timeouts it experienced into s.timeouts.
    Then decrement s.reader_refs before returning. */
 static void mu_stress_reader_loop (cv_stress_data *s, condition_func condition,
-				   void *condition_arg) {
+				   const void *condition_arg) {
 	uintmax_t loops;
 	uintmax_t timeouts = 0;
 	nsync_mu_rlock (&s->mu);
@@ -283,8 +282,8 @@ static void mu_stress_reader_loop (cv_stress_data *s, condition_func condition,
 		nsync_mu_rassert_held (&s->mu);
 		abs_deadline = nsync_time_add (nsync_time_now (),
 			nsync_time_us (rand () % STRESS_MAX_DELAY_MICROS));
-		while (nsync_mu_wait_with_deadline (&s->mu, condition,
-						    condition_arg, abs_deadline, NULL) != 0) {
+		while (nsync_mu_wait_with_deadline (&s->mu, condition, condition_arg, NULL,
+						    abs_deadline, NULL) != 0) {
 			nsync_mu_rassert_held (&s->mu);
 			s->timeouts++;
 			nsync_mu_rassert_held (&s->mu);
@@ -316,7 +315,7 @@ static void mu_stress_reader_loop (cv_stress_data *s, condition_func condition,
 	nsync_mu_unlock (&s->mu);
 }
 
-CLOSURE_DECL_BODY3 (mu_stress_reader_loop, cv_stress_data *, condition_func, void *)
+CLOSURE_DECL_BODY3 (mu_stress_reader_loop, cv_stress_data *, condition_func, const void *)
 
 static const condition_func is_n_mod_4[] = {
 	&count_is0mod4,

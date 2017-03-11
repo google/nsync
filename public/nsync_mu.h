@@ -28,20 +28,16 @@ struct nsync_dll_element_s_;
    An nsync_mu can be "free", held by a single thread (aka goroutine) in
    "write" (exclusive) mode, or by many threads in "read" (shared) mode.  A
    thread that acquires it should eventually release it.  It is illegal to
-   acquire an nsync_mu in one thread and release it in another without using
-   the nsync_mu_transfer() and nsync_mu_receive_from_transfer() calls.  It is
+   acquire an nsync_mu in one thread and release it in another.  It is
    illegal for a thread to reacquire an nsync_mu while holding it (even a
    second share of a "read" lock).
 
-   nsync_mu_wait() and nsync_mu_wait_with_deadline() can be used instead of
-   condition variables.
-
    Example usage:
-	struct foo {
+	static struct foo {
 		nsync_mu mu; // protects invariant a+b==0 on fields below.
 		int a;
 		int b;
-	} p;
+	} p = { NSYNC_MU_INIT, 0, 0 };
 	....
 	nsync_mu_lock (&p.mu);
 	// The current thread now has exclusive access to p.a and p.b; invariant assumed true.
@@ -49,13 +45,17 @@ struct nsync_dll_element_s_;
 	p.b--; // restore invariant p.a+p.b==0 before releasing p.mu
 	nsync_mu_unlock (&p.mu)
 
+   Mutexes can be used with condition variables; see nsync_cv.h.
+
+   nsync_mu_wait() and nsync_mu_wait_with_deadline() can be used instead of
+   condition variables.  See nsync_mu_wait.h for more details.
    Example use of nsync_mu_wait() to wait for p.a==0, using definition above:
-	int a_is_zero (void *condition_arg) {
-		return (((struct foo *)condition_arg)->a == 0);
+	int a_is_zero (const void *condition_arg) {
+		return (((const struct foo *)condition_arg)->a == 0);
 	}
 	...
 	nsync_mu_lock (&p.mu);
-	nsync_mu_wait (&p.mu, &a_is_zero, &p);
+	nsync_mu_wait (&p.mu, &a_is_zero, &p, NULL);
 	// The current thread now has exclusive access to p.a and p.b, and p.a==0.
 	...
 	nsync_mu_unlock (&p.mu); */
@@ -65,14 +65,17 @@ typedef struct nsync_mu_s_ {
 } nsync_mu;
 
 /* An nsync_mu should be zeroed to initialize, which can be accomplished by
-   initializing with NSYNC_MU_INIT, or by setting the entire structure to all zeroes. */
+   initializing with static initializer NSYNC_MU_INIT, or by setting the entire
+   structure to all zeroes, or using nsync_mu_init().  */
 #define NSYNC_MU_INIT { NSYNC_ATOMIC_UINT32_INIT_, 0 }
+void nsync_mu_init (nsync_mu *mu);
 
-/* Block until *mu is free and then acquire it in writer mode. */
+/* Block until *mu is free and then acquire it in writer mode.
+   Requires that the calling thread not already hold *mu in any mode.  */
 void nsync_mu_lock (nsync_mu *mu);
 
-/* Unlock *mu, which must be held in write mode, and wake waiters, if
-   appropriate.  */
+/* Unlock *mu, which must have been acquired in write mode by the calling
+   thread, and wake waiters, if appropriate.  */
 void nsync_mu_unlock (nsync_mu *mu);
 
 /* Attempt to acquire *mu in writer mode without blocking, and return non-zero
@@ -80,11 +83,12 @@ void nsync_mu_unlock (nsync_mu *mu);
    on entry.  */
 int nsync_mu_trylock (nsync_mu *mu);
 
-/* Block until *mu can be acquired in reader mode and then acquire it. */
+/* Block until *mu can be acquired in reader mode and then acquire it.
+   Requires that the calling thread not already hold *mu in any mode. */
 void nsync_mu_rlock (nsync_mu *mu);
 
-/* Unlock *mu, which must be held in read mode, and wake waiters, if
-   appropriate.  */
+/* Unlock *mu, which must have been acquired in read mode by the calling
+   thread, and wake waiters, if appropriate.  */
 void nsync_mu_runlock (nsync_mu *mu);
 
 /* Attempt to acquire *mu in reader mode without blocking, and return non-zero
@@ -93,15 +97,16 @@ void nsync_mu_runlock (nsync_mu *mu);
    */
 int nsync_mu_rtrylock (nsync_mu *mu);
 
-/* Abort if *mu is not held in write mode. */
-void nsync_mu_assert_held (nsync_mu *mu);
+/* May abort if *mu is not held in write mode by the calling thread. */
+void nsync_mu_assert_held (const nsync_mu *mu);
 
-/* Abort if *mu is not held in read or write mode. */
-void nsync_mu_rassert_held (nsync_mu *mu);
+/* May abort if *mu is not held in read or write mode
+   by the calling thread.  */
+void nsync_mu_rassert_held (const nsync_mu *mu);
 
 /* Return whether *mu is held in read mode.
-   Requires that *mu is held in some mode. */
-int nsync_mu_is_reader (nsync_mu *mu);
+   Requires that the calling thread holds *mu in some mode. */
+int nsync_mu_is_reader (const nsync_mu *mu);
 
 NSYNC_CPP_END_
 

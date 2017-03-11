@@ -12,7 +12,7 @@
   See the License for the specific language governing permissions and
   limitations under the License. */
 
-/* Helper routines for x86 implementation of atomic operations. */
+/* Helper routines for x86_64 implementation of atomic operations. */
 
 /* Atomically, with acquire and release barrier semantics,
 	int nsync_atm_cas_ (nsync_atomic_uint32_ *p, uint32_t old_value, uint32_t new_value) {

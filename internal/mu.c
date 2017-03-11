@@ -19,10 +19,24 @@
 #include "nsync.h"
 #include "dll.h"
 #include "sem.h"
+#include "wait_internal.h"
 #include "common.h"
 #include "atomic.h"
 
 NSYNC_CPP_START_
+
+/* Initialize *mu. */
+void nsync_mu_init (nsync_mu *mu) {
+	memset (mu, 0, sizeof (*mu));
+}
+
+/* Release the mutex spinlock. */
+static void mu_release_spinlock (nsync_mu *mu) {
+	uint32_t old_word = ATM_LOAD (&mu->word);
+	while (!ATM_CAS_REL (&mu->word, old_word, old_word & ~MU_SPINLOCK)) {
+		old_word = ATM_LOAD (&mu->word);
+	}
+}
 
 /* Lock *mu using the specified lock_type, waiting on *w if necessary.
    "clear" should be zero if the thread has not previously slept on *mu, and
@@ -37,6 +51,7 @@ void nsync_mu_lock_slow_ (nsync_mu *mu, waiter *w, uint32_t clear, lock_type *l_
 	w->cv_mu = NULL;      /* not a cv wait */
 	w->cond.f = NULL; /* Not using a conditional critical section. */
 	w->cond.v = NULL;
+	w->cond.eq = NULL;
 	w->l_type = l_type;
 	zero_to_acquire = l_type->zero_to_acquire;
 	if (clear != 0) {
@@ -68,11 +83,11 @@ void nsync_mu_lock_slow_ (nsync_mu *mu, waiter *w, uint32_t clear, lock_type *l_
 			if (wait_count == 0) {
 				/* first wait goes to end of queue */
 				mu->waiters = nsync_dll_make_last_in_list_ (mu->waiters,
-								     (nsync_dll_element_ *)&w->nw.q);
+								            &w->nw.q);
 			} else {
 				/* subsequent waits go to front of queue */
 				mu->waiters = nsync_dll_make_first_in_list_ (mu->waiters,
-								      (nsync_dll_element_ *)&w->nw.q);
+								             &w->nw.q);
 			}
 
 			/* Release spinlock.  Cannot use a store here, because
@@ -80,11 +95,7 @@ void nsync_mu_lock_slow_ (nsync_mu *mu, waiter *w, uint32_t clear, lock_type *l_
 			   another thread were a designated waker, the mutex
 			   holder could be concurrently unlocking, even though
 			   we hold the spinlock. */
-			old_word = ATM_LOAD (&mu->word);
-			while (!ATM_CAS_REL (&mu->word, old_word,
-					     old_word & ~MU_SPINLOCK)) { /* release CAS */
-				old_word = ATM_LOAD (&mu->word);
-			}
+			mu_release_spinlock (mu);
 
 			/* wait until awoken. */
 			while (ATM_LOAD_ACQ (&w->nw.waiting) != 0) { /* acquire load */
@@ -182,6 +193,28 @@ void nsync_mu_rlock (nsync_mu *mu) {
 	IGNORE_RACES_END ();
 }
 
+/* Invoke the condition associated with *p, which is an element of
+   a "waiter" list. */
+static int condition_true (nsync_dll_element_ *p) {
+	return ((*DLL_WAITER (p)->cond.f) (DLL_WAITER (p)->cond.v));
+}
+
+/* If *p is an element of waiter_list (a list of "waiter" structs(, return a
+   pointer to the next element of the list that has a different condition. */
+static nsync_dll_element_ *skip_past_same_condition (
+	nsync_dll_list_ waiter_list, nsync_dll_element_ *p) {
+	nsync_dll_element_ *next;
+	nsync_dll_element_ *last_with_same_condition =
+		&DLL_WAITER_SAMECOND (DLL_WAITER (p)->same_condition.prev)->nw.q;
+	if (last_with_same_condition != p && last_with_same_condition != p->prev) {
+		/* First in set with same condition, so skip to end.  */
+		next = nsync_dll_next_ (waiter_list, last_with_same_condition);
+	} else {
+		next = nsync_dll_next_ (waiter_list, p);
+	}
+	return (next);
+}
+
 /* Merge the same_condition lists of *p and *n if they have the same non-NULL
    condition.  */
 void nsync_maybe_merge_conditions_ (nsync_dll_element_ *p, nsync_dll_element_ *n) {
@@ -233,7 +266,17 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 		uint32_t early_release_mu = l_type->add_to_acquire;
 		uint32_t late_release_mu = 0;
 		if (testing_conditions) {
-			/* Convert to a writer lock, and release later.  */
+			/* Convert to a writer lock, and release later.
+			   - A writer lock is currently needed to test conditions
+			     because exclusive access is needed to the list to
+			     allow modification.  The spinlock cannot be used
+			     to achieve that, because an internal lock should not
+			     be held when calling the external predicates.
+			   - We must test conditions even though a reader region
+			     cannot have made any new ones true because some
+			     might have been true before the reader region started.
+			     The MU_ALL_FALSE test below shortcuts the case where
+			     the conditions are known all to be false.  */
 			early_release_mu = l_type->add_to_acquire - MU_WLOCK;
 			late_release_mu = MU_WLOCK;
 		}
@@ -282,25 +325,34 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 			set_on_release = MU_ALL_FALSE;
 			while (!nsync_dll_is_empty_ (new_waiters)) { /* some new waiters to consider */
 				p = nsync_dll_first_ (new_waiters);
-				testing_conditions = testing_conditions &&
-						     wake_type != nsync_writer_type_ &&
-					(wake_type != NULL ||
-					 DLL_WAITER (p)->l_type == nsync_reader_type_ ||
-					 DLL_WAITER (p)->cond.f != NULL);
+				if (testing_conditions) {
+					/* Should we continue to test conditions? */
+					if (wake_type == nsync_writer_type_) {
+						/* No, because we're already waking a writer,
+						   and need wake no others.*/
+						testing_conditions = 0;
+					} else if (wake_type == NULL &&
+						DLL_WAITER (p)->l_type != nsync_reader_type_ &&
+						DLL_WAITER (p)->cond.f == NULL) {
+						/* No, because we've woken no one, but the
+						   first waiter is a writer with no condition,
+						   so we will certainly wake it, and need wake
+						   no others. */
+						testing_conditions = 0;
+					}
+				}
 				/* If testing waiters' conditions, release the
 				   spinlock while still holding the write lock.
 				   This is so that the spinlock is not held
 				   while the conditions are evaluated.  */
 				if (testing_conditions) {
-					old_word = ATM_LOAD (&mu->word);
-					while (!ATM_CAS_REL (&mu->word, old_word,
-							     old_word & ~MU_SPINLOCK)) {
-						old_word = ATM_LOAD (&mu->word);
-					}
+					mu_release_spinlock (mu);
 				}
 
 				/* Process the new waiters picked up in this iteration of the
-				   "for !nsync_dll_is_empty_ (new_waiters)" loop. */
+				   "while (!nsync_dll_is_empty_ (new_waiters))" loop,
+				   and stop looking when we run out of waiters, or we find
+				   a writer to wake up. */
 				while (p != NULL && wake_type != nsync_writer_type_) {
 					int p_has_condition;
 					next = nsync_dll_next_ (new_waiters, p);
@@ -309,21 +361,10 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 						nsync_panic_ ("checking a waiter condition "
 							      "while unlocked\n");
 					}
-					if (p_has_condition &&
-					    !(*DLL_WAITER (p)->cond.f) (DLL_WAITER (p)->cond.v)) {
+					if (p_has_condition && !condition_true (p)) {
 						/* condition is false */
 						/* skip to the end of the same_condition group. */
-						nsync_dll_element_ *last_with_same_condition =
-							(nsync_dll_element_ *) &DLL_WAITER_SAMECOND (
-							 DLL_WAITER (p)->same_condition.prev)->nw.q;
-						if (last_with_same_condition != p &&
-						    last_with_same_condition != p->prev) {
-							/* First in set with
-							   same condition, so
-							   skip to end.  */
-							next = nsync_dll_next_ (new_waiters,
-									 last_with_same_condition);
-						}
+						next = skip_past_same_condition (new_waiters, p);
 					} else if (wake_type == NULL ||
 						   DLL_WAITER (p)->l_type == nsync_reader_type_) {
 						/* Wake this thread. */
@@ -342,6 +383,8 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 				}
 
 				if (p != NULL) {
+					/* Didn't search to end of list, so can't be sure
+					   all conditions are false. */
 					set_on_release &= ~MU_ALL_FALSE;
 				}
 
@@ -370,8 +413,10 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 				clear_on_release |= MU_DESIG_WAKER;
 			}
 
-			/* Clear MU_ALL_FALSE if not explicitly setting it. */
-			clear_on_release |= (set_on_release & MU_ALL_FALSE) ^ MU_ALL_FALSE;
+			if ((set_on_release & MU_ALL_FALSE) == 0) {
+				/* If not explicitly setting MU_ALL_FALSE, clear it. */
+				clear_on_release |= MU_ALL_FALSE;
+			}
 
 			if (nsync_dll_is_empty_ (mu->waiters)) {
 				/* no waiters left */
@@ -413,7 +458,11 @@ void nsync_mu_unlock (nsync_mu *mu) {
 	   word again. */
 	if (!ATM_CAS_REL (&mu->word, MU_WLOCK, 0)) {
 		uint32_t old_word = ATM_LOAD (&mu->word);
+                /* Clear MU_ALL_FALSE because the critical section we're just
+                   leaving may have made some conditions true.  */
 		uint32_t new_word = (old_word - MU_WLOCK) & ~MU_ALL_FALSE;
+                /* Sanity check:  mutex must be held in write mode, and there
+                   must be no readers.  */
 		if ((new_word & (MU_RLOCK_FIELD | MU_WLOCK)) != 0) {
 			if ((old_word & MU_RLOCK_FIELD) != 0) {
 				nsync_panic_ ("attempt to nsync_mu_unlock() an nsync_mu "
@@ -424,6 +473,8 @@ void nsync_mu_unlock (nsync_mu *mu) {
 			}
 		} else if ((old_word & (MU_WAITING|MU_DESIG_WAKER)) == MU_WAITING ||
 			   !ATM_CAS_REL (&mu->word, old_word, new_word)) {
+			/* There are waiters and no designated waker, or
+			   our initial CAS attempt failed, to use slow path. */
 			nsync_mu_unlock_slow_ (mu, nsync_writer_type_);
 		}
 	}
@@ -436,6 +487,8 @@ void nsync_mu_runlock (nsync_mu *mu) {
 	/* See comment in nsync_mu_unlock(). */
 	if (!ATM_CAS_REL (&mu->word, MU_RLOCK, 0)) {
 		uint32_t old_word = ATM_LOAD (&mu->word);
+                /* Sanity check:  mutex must not be held in write mode and
+                   reader count must not be 0.  */
 		if (((old_word ^ MU_WLOCK) & (MU_WLOCK | MU_RLOCK_FIELD)) == 0) {
 			if ((old_word & MU_WLOCK) != 0) {
 				nsync_panic_ ("attempt to nsync_mu_runlock() an nsync_mu "
@@ -444,65 +497,23 @@ void nsync_mu_runlock (nsync_mu *mu) {
 				nsync_panic_ ("attempt to nsync_mu_runlock() an nsync_mu "
 				       "not held in read mode\n");
 			}
-		} else if (((old_word & (MU_WAITING | MU_DESIG_WAKER)) == MU_WAITING &&
-			    (old_word & (MU_RLOCK_FIELD|MU_ALL_FALSE)) == MU_RLOCK) ||
-			   !ATM_CAS_REL (&mu->word, old_word, old_word - MU_RLOCK)) {
+		} else if ((old_word & (MU_WAITING | MU_DESIG_WAKER)) == MU_WAITING &&
+			    (old_word & (MU_RLOCK_FIELD|MU_ALL_FALSE)) == MU_RLOCK) {
+                        /* There are waiters and no designated waker, the last
+                           reader is unlocking, and not all waiters have a
+                           false condition.  So we must take the slow path to
+                           attempt to wake a waiter.  */
+			nsync_mu_unlock_slow_ (mu, nsync_reader_type_);
+		} else if (!ATM_CAS_REL (&mu->word, old_word, old_word - MU_RLOCK)) {
+			/* CAS attempt failed, so take slow path. */
 			nsync_mu_unlock_slow_ (mu, nsync_reader_type_);
 		}
 	}
 	IGNORE_RACES_END ();
 }
 
-/* Inform the implementation that the holder of *mu wishes to
-   transfer it to some thread that will call nsync_mu_receive_from_transfer().
-   This is not expected to be a common requirement.
-   Requires that the caller hold *mu in some mode, that it should behave as
-   though it no longer does after the call, and some other thread will
-   subsequently call nsync_mu_receive_from_transfer(), and that other thread will then
-   act as though it has acquired *mu.
-
-   It is illegal for a thread that did not itself acquire *mu to release it,
-   unless the previous owner called nsync_mu_transfer(), and the releaser then called
-   nsync_mu_receive_from_transfer() before releasing it.  These rules make it easier to
-   build race detectors, and implement possible future optimizations.
-
-   Example:
-	nsync_mu_lock (&mu); // protects x
-	x = f0 (x);
-	nsync_mu_transfer ();
-	pthread_create (&t, NULL, &other_thread, NULL);
-
-	void *other_thread (void *) {
-		nsync_mu_receive_from_transfer ();
-		x = f1 (x);
-		nsync_mu_unlock (&mu);
-	} */
-void nsync_mu_transfer (nsync_mu *mu) {
-	IGNORE_RACES_START ();
-	/* This routine currently only asserts that the lock is held in some mode.
-	   nsync_mu_transfer()/nsync_mu_receive_from_transfer(), and the prohibition against
-	   unilaterally releasing a lock held by another thread without first
-	   calling it, exist for two reasons:
-	   - it's easier to write a deadlock detector, or a dynamic analysis
-	     tool that does lock-set-based race detection if the tool has
-	     enough information to know which locks should be considered held
-	     by which threads.
-	   - various optimizations to mu are easier if the implementation can
-	     know which thread is to be considered to be holding the lock.  */
-	nsync_mu_rassert_held (mu);
-	IGNORE_RACES_END ();
-}
-
-/* Complete an ownership transfer from a thread that
-   previously called nsync_mu_transfer().  See nsync_mu_transfer(). */
-void nsync_mu_receive_from_transfer (nsync_mu *mu) {
-	IGNORE_RACES_START ();
-	nsync_mu_rassert_held (mu);
-	IGNORE_RACES_END ();
-}
-
 /* Abort if *mu is not held in write mode. */
-void nsync_mu_assert_held (nsync_mu *mu) {
+void nsync_mu_assert_held (const nsync_mu *mu) {
 	IGNORE_RACES_START ();
 	if ((ATM_LOAD (&mu->word) & MU_WHELD_IF_NON_ZERO) == 0) {
 		nsync_panic_ ("nsync_mu not held in write mode\n");
@@ -511,7 +522,7 @@ void nsync_mu_assert_held (nsync_mu *mu) {
 }
 
 /* Abort if *mu is not held in read or write mode. */
-void nsync_mu_rassert_held (nsync_mu *mu) {
+void nsync_mu_rassert_held (const nsync_mu *mu) {
 	IGNORE_RACES_START ();
 	if ((ATM_LOAD (&mu->word) & MU_ANY_LOCK) == 0) {
 		nsync_panic_ ("nsync_mu not held in some mode\n");
@@ -521,7 +532,7 @@ void nsync_mu_rassert_held (nsync_mu *mu) {
 
 /* Return whether *mu is held in read mode.
    Requires that *mu is held in some mode. */
-int nsync_mu_is_reader (nsync_mu *mu) {
+int nsync_mu_is_reader (const nsync_mu *mu) {
 	uint32_t word;
 	IGNORE_RACES_START ();
 	word = ATM_LOAD (&mu->word);

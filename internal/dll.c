@@ -49,30 +49,44 @@ nsync_dll_list_ nsync_dll_remove_ (nsync_dll_list_ list, nsync_dll_element_ *e) 
 }
 
 /* Cause element *n and its successors to come after element *p.
-   Requires n and p are non-NULL and do not point at elements of the same list. */
+   Requires n and p are non-NULL and do not point at elements of the same list.
+
+   Unlike the other operations in this API, this operation acts on
+   two circular lists of elements, rather than on a "head" location that points
+   to such a circular list.
+
+   If the two lists are p->p_2nd->p_mid->p_last->p and n->n_2nd->n_mid->n_last->n,
+   then after nsync_dll_splice_after_ (p, n), the p list would be:
+   p->n->n_2nd->n_mid->n_last->p_2nd->p_mid->p_last->p.  */
 void nsync_dll_splice_after_ (nsync_dll_element_ *p, nsync_dll_element_ *n) {
-	nsync_dll_element_ *tmp = p->next;
-	p->next = n;
-	n->prev->next = tmp;
-	tmp->prev = n->prev;
-	n->prev = p;
+        nsync_dll_element_ *p_2nd = p->next;
+        nsync_dll_element_ *n_last = n->prev;
+        p->next = n;  /* n follows p */
+        n->prev = p;
+	n_last->next = p_2nd;  /* remainder of p-list follows last of n-list */
+	p_2nd->prev = n_last;
 }
 
 /* Make element *e the first element of list, and return
    the list.  The resulting list will have *e as its first element, followed by
    any elements in the same list as *e, followed by the elements that were
    previously in list.  Requires that *e not be in list.  If e==NULL, list is
-   returned unchanged. */
+   returned unchanged.
+
+   Suppose the e list is e->e_2nd->e_mid->e_last->e.
+   Recall that a head "list" points to the last element of its list.
+   If list is initially null, then the outcome is:
+	result = e_last->e->e_2nd->e_mid->e_last
+   If list is  initially list->list_last->list_1st->list_mid->list_last,
+   then the outcome is:
+	result = list_last->e->e_2nd->e_mid->e_last->list_1st->list_mid->list_last
+   */
 nsync_dll_list_ nsync_dll_make_first_in_list_ (nsync_dll_list_ list, nsync_dll_element_ *e) {
 	if (e != NULL) {
 		if (list == NULL) {
-			list = e->prev;
+			list = e->prev;   /*e->prev is e_last*/
 		} else {
-			nsync_dll_element_ *first_in_old_list = list->next;
-			list->next = e;
-			e->prev->next = first_in_old_list;
-			first_in_old_list->prev = e->prev;
-			e->prev = list;
+			nsync_dll_splice_after_ (list, e);
 		}
 	}
 	return (list);
