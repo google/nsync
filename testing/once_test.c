@@ -94,7 +94,7 @@ static void test_once_run (testing t) {
         for (i = 0; i != 250; i++) {
                 struct once_test_s *s =
 			(struct once_test_s *) malloc (sizeof (*s));
-                s->once = NSYNC_ONCE_INIT;
+                memset (s, 0, sizeof (*s));
                 s->counter = 0;
                 s->done = nsync_counter_new (N);
                 s->t = t;
