@@ -53,6 +53,91 @@ typedef struct {
 #define NSYNC_TIME_NSEC(t) ((t).nanoseconds)
 NSYNC_CPP_END_
 
+#elif NSYNC_USE_CPP11_TIMEPOINT
+/* The inline functions below provide function overloads that accept the most
+   likely C++11 time type(s).
+
+   C++11 time types have many variations and subtleties:
+   - There are multiple clocks with potentially differing epochs; these clocks
+     are not necessarily phase-locked to the same rate, making conversion and
+     comparison between clocks tricky.
+   - Relative and absolute times are distinguished in the type system.
+   - Either integral or floating point counters may be used to represent time
+     intervals, and code valid with one may not be valid with the other
+     (see std::chrono::treat_as_floating_point).
+   - A counter increment of one can represent any rational number of seconds
+     (for whatever "seconds" means for this clock).
+   - Conversions between duration types may round or truncate at the
+     implementation's discretion.
+   - As mentioned above, common implementations of the default monotonic clock
+     ("steady_clock") illegally allow a thread to observe time going backwards,
+     especially in the face of scheduling on a different CPU, making its use
+     misleading, at best.
+   I've chosen to handle this complexity by doing a conversion to absolute
+   timespec at the interface layer, so all the C++ complication is here, rather
+   than spread throughout the library.  */
+
+#include <chrono>
+#include <time.h>
+NSYNC_CPP_START_
+typedef struct timespec nsync_time;
+#define NSYNC_TIME_SEC(t) ((t).tv_sec)
+#define NSYNC_TIME_NSEC(t) ((t).tv_nsec)
+
+typedef std::chrono::system_clock::time_point nsync_cpp_time_point_;
+nsync_time nsync_from_time_point_ (nsync_cpp_time_point_);
+nsync_cpp_time_point_ nsync_to_time_point_ (nsync_time);
+#define NSYNC_COUNTER_CPP_OVERLOAD_ \
+        static inline uint32_t nsync_counter_wait (nsync_counter c, \
+                                                   nsync_cpp_time_point_ abs_deadline) { \
+		return (nsync_counter_wait (c, nsync_from_time_point_ (abs_deadline))); \
+	}
+#define NSYNC_CV_CPP_OVERLOAD_ \
+	static inline int nsync_cv_wait_with_deadline (nsync_cv *cv, nsync_mu *mu, \
+		nsync_cpp_time_point_ abs_deadline, struct nsync_note_s_ *cancel_note) { \
+		return (nsync_cv_wait_with_deadline (cv, mu, \
+				nsync_from_time_point_ (abs_deadline), \
+				cancel_note)); \
+	} \
+	static inline int nsync_cv_wait_with_deadline_generic (nsync_cv *cv, \
+		void *mu, void (*lock) (void *), void (*unlock) (void *), \
+		nsync_cpp_time_point_ abs_deadline, struct nsync_note_s_ *cancel_note) { \
+		return (nsync_cv_wait_with_deadline_generic (cv, mu, lock, unlock, \
+				nsync_from_time_point_ (abs_deadline), \
+				cancel_note)); \
+	}
+#define NSYNC_MU_WAIT_CPP_OVERLOAD_ \
+	static inline int nsync_mu_wait_with_deadline (nsync_mu *mu, \
+		int (*condition) (const void *condition_arg), const void *condition_arg, \
+		int (*condition_arg_eq) (const void *a, const void *b), \
+		nsync_cpp_time_point_ abs_deadline, struct nsync_note_s_ *cancel_note) { \
+		return (nsync_mu_wait_with_deadline (mu, condition, condition_arg, \
+						     condition_arg_eq, \
+						     nsync_from_time_point_ (abs_deadline), \
+						     cancel_note)); \
+	}
+#define NSYNC_NOTE_CPP_OVERLOAD_ \
+	static inline nsync_note nsync_note_new (nsync_note parent, \
+						 nsync_cpp_time_point_ abs_deadline) { \
+		return (nsync_note_new (parent, nsync_from_time_point_ (abs_deadline))); \
+	} \
+	static inline int nsync_note_wait (nsync_note n, nsync_cpp_time_point_ abs_deadline) { \
+		return (nsync_note_wait (n, nsync_from_time_point_ (abs_deadline))); \
+	} \
+	static inline nsync_cpp_time_point_ nsync_note_expiry_timepoint (nsync_note n) { \
+		return (nsync_to_time_point_ (nsync_note_expiry (n))); \
+	}
+#define NSYNC_WAITER_CPP_OVERLOAD_ \
+	static inline int nsync_wait_n (void *mu, void (*lock) (void *), \
+					void (*unlock) (void *), \
+					nsync_cpp_time_point_ abs_deadline, \
+					int count, struct nsync_waitable_s *waitable[]) { \
+		return (nsync_wait_n (mu, lock, unlock, \
+				      nsync_from_time_point_ (abs_deadline), count, waitable)); \
+	}
+
+NSYNC_CPP_END_
+
 #else
 /* Default is to use timespec. */
 #include <time.h>
@@ -62,6 +147,14 @@ typedef struct timespec nsync_time;
 #define NSYNC_TIME_NSEC(t) ((t).tv_nsec)
 NSYNC_CPP_END_
 
+#endif
+
+#if !defined(NSYNC_COUNTER_CPP_OVERLOAD_)
+#define NSYNC_COUNTER_CPP_OVERLOAD_
+#define NSYNC_CV_CPP_OVERLOAD_
+#define NSYNC_MU_WAIT_CPP_OVERLOAD_
+#define NSYNC_NOTE_CPP_OVERLOAD_
+#define NSYNC_WAITER_CPP_OVERLOAD_
 #endif
 
 #endif /*NSYNC_PUBLIC_NSYNC_TIME_INTERNAL_H_*/

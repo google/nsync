@@ -29,8 +29,8 @@
 
 NSYNC_CPP_START_
 
-extern nsync_time nsync_time_no_deadline; /* A deadline infinitely far in the future. */
-extern nsync_time nsync_time_zero;  /* The zero delay, or an expired deadline. */
+extern const nsync_time nsync_time_no_deadline; /* A deadline infinitely far in the future. */
+extern const nsync_time nsync_time_zero;  /* The zero delay, or an expired deadline. */
 
 nsync_time nsync_time_now (void); /* Return the current time since the epoch.  */
 

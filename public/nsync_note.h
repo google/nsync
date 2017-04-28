@@ -61,6 +61,7 @@ int nsync_note_wait (nsync_note n, nsync_time abs_deadline);
    of its ancestors.  */
 nsync_time nsync_note_expiry (nsync_note n);
 
+NSYNC_NOTE_CPP_OVERLOAD_
 NSYNC_CPP_END_
 
 #endif /*NSYNC_PUBLIC_NSYNC_NOTE_H_*/

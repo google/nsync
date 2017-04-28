@@ -25,7 +25,7 @@ struct nsync_dll_element_s_;
 
 /* An nsync_mu is a lock.  If initialized to all zeroes, it is valid and unlocked.
 
-   An nsync_mu can be "free", held by a single thread (aka goroutine) in
+   An nsync_mu can be "free", held by a single thread (aka fiber, goroutine) in
    "write" (exclusive) mode, or by many threads in "read" (shared) mode.  A
    thread that acquires it should eventually release it.  It is illegal to
    acquire an nsync_mu in one thread and release it in another.  It is

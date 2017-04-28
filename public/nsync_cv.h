@@ -142,6 +142,7 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *cv,
 				   nsync_time abs_deadline,
 				   struct nsync_note_s_ *cancel_note);
 
+NSYNC_CV_CPP_OVERLOAD_
 NSYNC_CPP_END_
 
 #endif /*NSYNC_PUBLIC_NSYNC_CV_H_*/

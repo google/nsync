@@ -1,4 +1,4 @@
-PLATFORM_CPPFLAGS=-DNSYNC_ATOMIC_CPP11 -I../../platform/c++11 -D_POSIX_C_SOURCE=200809L -I../../platform/gcc -I../../platform/linux -I../../platform/x86_64 -I../../platform/posix -pthread
+PLATFORM_CPPFLAGS=-DNSYNC_ATOMIC_CPP11 -I../../platform/linux -I../../platform/c++11 -D_POSIX_C_SOURCE=200809L -I../../platform/gcc -I../../platform/x86_64 -I../../platform/posix -pthread
 PLATFORM_CFLAGS=-x c++ -std=c++11 -Werror -Wall -Wextra -pedantic
 PLATFORM_LDFLAGS=-pthread
 MKDEP=${CC} -M -x c++ -std=c++11

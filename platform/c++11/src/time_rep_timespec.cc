@@ -1,4 +1,4 @@
-/* Copyright 2016 Google Inc.
+/* Copyright 2017 Google Inc.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@
 #include "cputype.h"
 #include "nsync_time_init.h"
 #include "nsync_time.h"
+#include <chrono>
+#include <thread>
 
 NSYNC_CPP_START_
 
@@ -42,22 +44,48 @@ nsync_time nsync_time_s_ns (time_t s, unsigned ns) {
 	return (t);
 }
 
-nsync_time nsync_time_now (void) {
+/* Return the nsync_time corresponding to tp. */
+nsync_time nsync_from_time_point_ (nsync_cpp_time_point_ tp) {
+        /* std::chrono::system_clock::to_time_t() says that "[i]t is implementation
+           defined whether values are rounded or truncated to the required
+           precision", which is a little tricky to use.
+           Assume instead that the epoch for std::chrono::system_clock::time_point is
+           the same as that for a struct timespec.  This seems to be true on at
+           least Linux, NetBSD, MacOS, and Win32; and with 64 bits gives
+	   us an implementation that will work for over 200 years.   By then,
+	   we'll be able to call C++17's timespec_get.  */
+        int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                tp.time_since_epoch ()).count();
 	struct timespec ts;
-	clock_gettime (CLOCK_REALTIME, &ts);
+	memset (&ts, 0, sizeof (ts));
+	ts.tv_sec = ns / NSYNC_NS_IN_S_;
+	ts.tv_nsec = ns - ts.tv_sec * NSYNC_NS_IN_S_;
 	return (ts);
 }
 
+/* Return the nsync_cpp_time_point_ corresponding to absolute time t. */
+nsync_cpp_time_point_ nsync_to_time_point_ (nsync_time t) {
+	std::chrono::nanoseconds t_ns(NSYNC_TIME_NSEC (t) +
+                                      NSYNC_NS_IN_S_ * (int64_t) NSYNC_TIME_SEC (t));
+	return (nsync_cpp_time_point_(t_ns));
+}
+
+nsync_time nsync_time_now (void) {
+        return (nsync_from_time_point_ (std::chrono::system_clock::now ()));
+}
+
 nsync_time nsync_time_sleep (nsync_time delay) {
-	struct timespec ts;
-	struct timespec remain;
-	memset (&ts, 0, sizeof (ts));
-	ts.tv_sec = NSYNC_TIME_SEC (delay);
-	ts.tv_nsec = NSYNC_TIME_NSEC (delay);
-	if (nanosleep (&ts, &remain) == 0) {
-		/* nanosleep() is not required to fill in "remain"
-		   if it returns 0. */
-		memset (&remain, 0, sizeof (remain));
+	nsync_time start = nsync_time_now ();
+	nsync_time expected_end = nsync_time_add (start, delay);
+	nsync_time remain;
+	std::chrono::nanoseconds delay_ns(NSYNC_TIME_NSEC (delay) +
+					  NSYNC_NS_IN_S_ * (int64_t) NSYNC_TIME_SEC (delay));
+	std::this_thread::sleep_for (delay_ns);
+	nsync_time actual_end = nsync_time_now ();
+	if (nsync_time_cmp (actual_end, expected_end) < 0) {
+		remain = nsync_time_sub (expected_end, actual_end);
+	} else {
+		remain = nsync_time_zero;
 	}
 	return (remain);
 }

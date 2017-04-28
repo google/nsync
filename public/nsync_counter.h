@@ -56,6 +56,7 @@ uint32_t nsync_counter_value (nsync_counter c);
    is far in the future. */
 uint32_t nsync_counter_wait (nsync_counter c, nsync_time abs_deadline);
 
+NSYNC_COUNTER_CPP_OVERLOAD_
 NSYNC_CPP_END_
 
 #endif /*NSYNC_PUBLIC_NSYNC_COUNTER_H_*/

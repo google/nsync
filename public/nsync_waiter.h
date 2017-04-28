@@ -149,6 +149,7 @@ extern const struct nsync_waitable_funcs_s nsync_note_waitable_funcs;
 extern const struct nsync_waitable_funcs_s nsync_counter_waitable_funcs;
 extern const struct nsync_waitable_funcs_s nsync_cv_waitable_funcs;
 
+NSYNC_WAITER_CPP_OVERLOAD_
 NSYNC_CPP_END_
 
 #endif /*NSYNC_PUBLIC_NSYNC_WAITER_H_*/

@@ -122,6 +122,7 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
    - when performance is significantly improved by using this call. */
 void nsync_mu_unlock_without_wakeup (nsync_mu *mu);
 
+NSYNC_MU_WAIT_CPP_OVERLOAD_
 NSYNC_CPP_END_
 
 #endif /*NSYNC_PUBLIC_NSYNC_MU_WAIT_H_*/
