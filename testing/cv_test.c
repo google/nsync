@@ -349,10 +349,15 @@ static const char *result_name[] = {
 
 /* state for test_cv_debug() */
 struct debug_state {
-	nsync_mu mu;
-	nsync_cv cv;
-	int flag;
+	nsync_mu mu;  /* protects flag field */
+	nsync_cv cv;  /* signalled when flag becomes zero */
+	int flag;     /* 0 => threads proceed; non-zero => threads block */
+
+	/* result[] is an array of nul-terminated string values, accessed via
+	   name (in result_name[]) via slot().  Entries accessed from multiple
+	   threads are protected by result_mu.  */
 	char *result[sizeof (result_name) / sizeof (result_name[0])];
+	nsync_mu result_mu;
 };
 
 /* Return a pointer to the slot in s->result[] associated with the
@@ -415,13 +420,15 @@ static void debug_thread_writer_cv (struct debug_state *s) {
    using nsync_mu_wait().
    If name!=NULL, record state of s->mu while held using name[]. */
 static void debug_thread_reader (struct debug_state *s,
-                                 const char *name) {
+				 const char *name) {
 	nsync_mu_rlock (&s->mu);
 	nsync_mu_wait (&s->mu, &int_is_zero, &s->flag, NULL);
 	if (name != NULL) {
 		int len = 1024;
+		nsync_mu_lock (&s->result_mu);
 		*slot (s, name) = nsync_mu_debug_state_and_waiters (
 			&s->mu, (char *) malloc (len), len);
+		nsync_mu_unlock (&s->result_mu);
 	}
 	nsync_mu_runlock (&s->mu);
 }
@@ -430,15 +437,17 @@ static void debug_thread_reader (struct debug_state *s,
    using nsync_cv_wait().
    If name!=NULL, record state of s->mu while held using name[]. */
 static void debug_thread_reader_cv (struct debug_state *s,
-                                    const char *name) {
+				    const char *name) {
 	nsync_mu_rlock (&s->mu);
 	while (s->flag != 0) {
 		nsync_cv_wait (&s->cv, &s->mu);
 	}
 	if (name != NULL) {
 		int len = 1024;
+		nsync_mu_lock (&s->result_mu);
 		*slot (s, name) = nsync_mu_debug_state_and_waiters (
 			&s->mu, (char *) malloc (len), len);
+		nsync_mu_unlock (&s->result_mu);
 	}
 	nsync_mu_runlock (&s->mu);
 }
@@ -540,7 +549,11 @@ static void test_cv_debug (testing t) {
 	check_same (t, s, "init_cv0", "init_cv2");
 	check_different (t, s, "init_mu0", "held_mu");
 	check_different (t, s, "rheld1_mu", "held_mu");
+	/* Must acquire result_mu, because the "rheld2_mu" slot is accessed
+	   from the debug_thread_reader() thread created above.  */
+	nsync_mu_lock (&s->result_mu);
 	check_different (t, s, "rheld1_mu", "rheld2_mu");
+	nsync_mu_unlock (&s->result_mu);
 	check_different (t, s, "init_mu0", "init_cv0");
 
 	for (i = 0; result_name[i] != NULL; i++) {
