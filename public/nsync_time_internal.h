@@ -53,7 +53,8 @@ typedef struct {
 #define NSYNC_TIME_NSEC(t) ((t).nanoseconds)
 NSYNC_CPP_END_
 
-#elif NSYNC_USE_CPP11_TIMEPOINT
+#elif defined(__cplusplus) && \
+      (NSYNC_USE_CPP11_TIMEPOINT || (__cplusplus >= 201103L) || (_MSC_VER >= 1700))
 /* The inline functions below provide function overloads that accept the most
    likely C++11 time type(s).
 
@@ -88,8 +89,8 @@ typedef std::chrono::system_clock::time_point nsync_cpp_time_point_;
 nsync_time nsync_from_time_point_ (nsync_cpp_time_point_);
 nsync_cpp_time_point_ nsync_to_time_point_ (nsync_time);
 #define NSYNC_COUNTER_CPP_OVERLOAD_ \
-        static inline uint32_t nsync_counter_wait (nsync_counter c, \
-                                                   nsync_cpp_time_point_ abs_deadline) { \
+	static inline uint32_t nsync_counter_wait (nsync_counter c, \
+						   nsync_cpp_time_point_ abs_deadline) { \
 		return (nsync_counter_wait (c, nsync_from_time_point_ (abs_deadline))); \
 	}
 #define NSYNC_CV_CPP_OVERLOAD_ \

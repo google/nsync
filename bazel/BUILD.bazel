@@ -49,19 +49,21 @@ config_setting(
 # ---------------------------------------------
 # Compilation options.
 
+load(":bazel/pkg_path_name.bzl", "pkg_path_name")
+
 # Compilation options that apply to both C++11 and C.
 NSYNC_OPTS_GENERIC = select({
     # Select the CPU architecture include directory.
     # This select() has no real effect in the C++11 build, but satisfies a
     # #include that would otherwise need a #if.
-    ":gcc_linux_x86_64_1": ["-I./" + PACKAGE_NAME + "/platform/x86_64"],
-    ":gcc_linux_x86_64_2": ["-I./" + PACKAGE_NAME + "/platform/x86_64"],
-    ":gcc_linux_aarch64": ["-I./" + PACKAGE_NAME + "/platform/aarch64"],
-    ":gcc_linux_ppc64": ["-I./" + PACKAGE_NAME + "/platform/ppc64"],
+    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
 }) + [
-    "-I./" + PACKAGE_NAME + "/public",
-    "-I./" + PACKAGE_NAME + "/internal",
-    "-I./" + PACKAGE_NAME + "/platform/posix",
+    "-I" + pkg_path_name() + "/public",
+    "-I" + pkg_path_name() + "/internal",
+    "-I" + pkg_path_name() + "/platform/posix",
     "-D_POSIX_C_SOURCE=200809L",
     "-pthread",
 ]
@@ -69,17 +71,17 @@ NSYNC_OPTS_GENERIC = select({
 # Options for C build, rather then C++11 build.
 NSYNC_OPTS = select({
     # Select the OS include directory.
-    ":gcc_linux_x86_64_1": ["-I./" + PACKAGE_NAME + "/platform/linux"],
-    ":gcc_linux_x86_64_2": ["-I./" + PACKAGE_NAME + "/platform/linux"],
-    ":gcc_linux_aarch64": ["-I./" + PACKAGE_NAME + "/platform/linux"],
-    ":gcc_linux_ppc64": ["-I./" + PACKAGE_NAME + "/platform/linux"],
+    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
     "//conditions:default": [],
 }) + select({
     # Select the compiler include directory.
-    ":gcc_linux_x86_64_1": ["-I./" + PACKAGE_NAME + "/platform/gcc"],
-    ":gcc_linux_x86_64_2": ["-I./" + PACKAGE_NAME + "/platform/gcc"],
-    ":gcc_linux_aarch64": ["-I./" + PACKAGE_NAME + "/platform/gcc"],
-    ":gcc_linux_ppc64": ["-I./" + PACKAGE_NAME + "/platform/gcc"],
+    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
 }) + NSYNC_OPTS_GENERIC
 
 # Options for C++11 build, rather then C build.
@@ -89,8 +91,8 @@ NSYNC_OPTS_CPP = [
     "-std=c++11",
     "-DNSYNC_ATOMIC_CPP11",
     "-DNSYNC_USE_CPP11_TIMEPOINT",
-    "-I./" + PACKAGE_NAME + "/platform/c++11",
-    "-I./" + PACKAGE_NAME + "/platform/gcc",  # must follow the -I...platform/c++11
+    "-I" + pkg_path_name() + "/platform/c++11",
+    "-I" + pkg_path_name() + "/platform/gcc",  # must follow the -I...platform/c++11
 ] + NSYNC_OPTS_GENERIC
 
 # Link options (for tests) built in C (rather than C++11).
@@ -235,6 +237,7 @@ cc_library(
     srcs = NSYNC_SRC_GENERIC + NSYNC_SRC_PLATFORM,
     hdrs = NSYNC_HDR_GENERIC,
     copts = NSYNC_OPTS,
+    includes = ["."],
     textual_hdrs = NSYNC_INTERNAL_HEADERS + NSYNC_INTERNAL_HEADERS_PLATFORM,
 )
 
@@ -244,6 +247,7 @@ cc_library(
     srcs = NSYNC_SRC_GENERIC + NSYNC_SRC_PLATFORM_CPP,
     hdrs = NSYNC_HDR_GENERIC,
     copts = NSYNC_OPTS_CPP,
+    includes = ["."],
     textual_hdrs = NSYNC_INTERNAL_HEADERS + NSYNC_INTERNAL_HEADERS_PLATFORM,
 )
 
