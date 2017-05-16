@@ -64,10 +64,11 @@ static inline int nsync_pthread_cond_timedwait_ (nsync_pthread_cond_ *cv, nsync_
 	if (abstimeout == NULL || abstimeout->tv_sec >= 0x7fffffff) {
 		cv->wait (mu_mu);
 	} else {
-		std::chrono::system_clock::time_point timeout (
-			std::chrono::nanoseconds (abstimeout->tv_nsec +
-						  1000 * 1000 * 1000 * (int64_t) abstimeout->tv_sec));
-		result = cv->wait_until (mu_mu, timeout);
+		std::chrono::system_clock::time_point epoch;
+		result = cv->wait_until (mu_mu,
+					 epoch + std::chrono::nanoseconds (
+					     abstimeout->tv_nsec +
+					     1000 * 1000 * 1000 * (int64_t) abstimeout->tv_sec));
 	}
 	mu_mu.release ();
 	return (result == std::cv_status::timeout? ETIMEDOUT : 0);

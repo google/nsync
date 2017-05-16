@@ -46,6 +46,11 @@ config_setting(
     values = {"cpu": "ppc"},
 )
 
+config_setting(
+    name = "clang_macos_x86_64",
+    values = {"cpu": "darwin"},
+)
+
 # ---------------------------------------------
 # Compilation options.
 
@@ -60,6 +65,7 @@ NSYNC_OPTS_GENERIC = select({
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
+    ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
 }) + [
     "-I" + pkg_path_name() + "/public",
     "-I" + pkg_path_name() + "/internal",
@@ -75,6 +81,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
     "//conditions:default": [],
 }) + select({
     # Select the compiler include directory.
@@ -82,6 +89,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
 }) + NSYNC_OPTS_GENERIC
 
 # Options for C++11 build, rather then C build.
@@ -180,6 +188,16 @@ NSYNC_SRC_LINUX = [
     "platform/posix/src/nsync_panic.c",
 ]
 
+# MacOS-specific library source.
+NSYNC_SRC_MACOS = [
+    "platform/posix/src/clock_gettime.c",
+    "platform/posix/src/nsync_semaphore_mutex.c",
+    "platform/posix/src/per_thread_waiter.c",
+    "platform/posix/src/yield.c",
+    "platform/posix/src/time_rep.c",
+    "platform/posix/src/nsync_panic.c",
+]
+
 # OS-specific library source.
 NSYNC_SRC_PLATFORM = select({
     # Linux is the only OS nsync supports in bazel currently.
@@ -187,6 +205,7 @@ NSYNC_SRC_PLATFORM = select({
     ":gcc_linux_x86_64_2": NSYNC_SRC_LINUX,
     ":gcc_linux_aarch64": NSYNC_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_SRC_LINUX,
+    ":clang_macos_x86_64": NSYNC_SRC_MACOS,
 })
 
 # C++11-specific (OS and architecture independent) library source.
@@ -259,6 +278,11 @@ NSYNC_TEST_SRC_LINUX = [
     "platform/posix/src/start_thread.c",
 ]
 
+# MacOS-specific test library source.
+NSYNC_TEST_SRC_MACOS = [
+    "platform/posix/src/start_thread.c",
+]
+
 # OS-specific test library source.
 NSYNC_TEST_SRC_PLATFORM = select({
     # Linux is the only OS nsync supports in bazel currently.
@@ -266,6 +290,7 @@ NSYNC_TEST_SRC_PLATFORM = select({
     ":gcc_linux_x86_64_2": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_aarch64": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_TEST_SRC_LINUX,
+    ":clang_macos_x86_64": NSYNC_TEST_SRC_MACOS,
 })
 
 # C++11-specific (OS and architecture independent) test library source.

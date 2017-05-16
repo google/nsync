@@ -65,9 +65,12 @@ nsync_time nsync_from_time_point_ (nsync_cpp_time_point_ tp) {
 
 /* Return the nsync_cpp_time_point_ corresponding to absolute time t. */
 nsync_cpp_time_point_ nsync_to_time_point_ (nsync_time t) {
+	nsync_cpp_time_point_ tp;
 	std::chrono::nanoseconds t_ns(NSYNC_TIME_NSEC (t) +
                                       NSYNC_NS_IN_S_ * (int64_t) NSYNC_TIME_SEC (t));
-	return (nsync_cpp_time_point_(t_ns));
+	nsync_cpp_time_point_::duration tp_dur =
+		std::chrono::duration_cast<nsync_cpp_time_point_::duration>(t_ns);
+	return (tp + tp_dur);
 }
 
 nsync_time nsync_time_now (void) {
