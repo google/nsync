@@ -27,6 +27,17 @@
 #include "compiler.h"
 #include "nsync_cpp.h"
 
+extern int write (int, const char *, size_t);
+
+/* Avoid deprecation/safety warning for tmpfile() */
+#define tmpfile nsync_tmpfile_wrapper
+static inline FILE *nsync_tmpfile_wrapper (void) {
+	FILE *fp;
+	if (tmpfile_s (&fp) != 0) {
+		fp = NULL;
+	}
+	return (fp);
+}
 
 NSYNC_C_START_
 /* Can't use TlsAlloc() because we use pthread_key_create's destructor
@@ -69,6 +80,7 @@ int nsync_nanosleep(const struct timespec *delay, struct timespec *remaining);
 #define pthread_cond_destroy(cv) /*no-op*/
 int nsync_pthread_cond_timedwait (pthread_cond_t *cv, pthread_mutex_t *mu,
 		                  const struct timespec *abstimeout);
+
 typedef struct {
 	SRWLOCK srw;
 	int w;

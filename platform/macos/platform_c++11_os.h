@@ -12,21 +12,21 @@
   See the License for the specific language governing permissions and
   limitations under the License. */
 
-#include "headers.h"
+#ifndef NSYNC_PLATFORM_MACOS_PLATFORM_CPP_OS_H_
+#define NSYNC_PLATFORM_MACOS_PLATFORM_CPP_OS_H_
+
+/* Some versions(!) of MacOS don't implement clock_gettime(). */
+#include <sys/time.h>
+#if !defined(CLOCK_REALTIME)
+
+#define CLOCK_REALTIME 0
+#define TIMER_ABSTIME 1
 
 NSYNC_CPP_START_
-
-int nsync_nanosleep (const struct timespec *request, struct timespec *remain) {
-	time_t x = request->tv_sec;
-	while (x > 1000) {
-		x -= 1000;
-		Sleep (1000 * 1000);
-	}
-	Sleep ((unsigned) (x * 1000 + (request->tv_nsec + 999999) / (1000 * 1000)));
-	if (remain != NULL) {
-		memset (remain, 0, sizeof (*remain));
-	}
-	return (0);
-}
-
+typedef int clockid_t;
+int clock_gettime (clockid_t clk_id, struct timespec *tp);
 NSYNC_CPP_END_
+
+#endif /*CLOCK_REALTIME*/
+
+#endif /*NSYNC_PLATFORM_MACOS_PLATFORM_CPP_OS_H_*/

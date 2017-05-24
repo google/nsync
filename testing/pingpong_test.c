@@ -74,6 +74,7 @@ static void ping_pong_destroy (ping_pong *pp) {
 	pthread_rwlock_destroy (&pp->rwmutex);
 	pthread_cond_destroy (&pp->cond[0]);
 	pthread_cond_destroy (&pp->cond[1]);
+	pthread_cond_destroy (&pp->done_cond);
 }
 
 /* --------------------------------------- */

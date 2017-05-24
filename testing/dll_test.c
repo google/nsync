@@ -58,7 +58,7 @@ static char *a_string (const a_int *a) {
 	char *buf = (char *) malloc (m);
 	char single[32];
 	int i;
-	strcpy (buf+n, "[");
+	snprintf (buf+n, m-n, "[");
 	n = strlen (buf);
 	for (i = 0; i != A_LEN (a); i++) {
 		int len;
@@ -68,10 +68,10 @@ static char *a_string (const a_int *a) {
 		if (m < n + len + 2) {
 			buf = (char *) realloc (buf, m *= 2);
 		}
-		strcpy (buf + n, single);
+		snprintf (buf + n, m-n, "%s", single);
 		n += len;
 	}
-	strcpy (buf+n, "]");
+	snprintf (buf+n, m-n, "]");
 	return (buf);
 }
 

@@ -158,6 +158,7 @@ NSYNC_INTERNAL_HEADERS_PLATFORM = [
     "platform/lcc/nsync_time_init.h",
     "platform/linux/platform.h",
     "platform/win32/atomic.h",
+    "platform/macos/platform_c++11_os.h",
     "platform/msvc/compiler.h",
     "platform/netbsd/atomic.h",
     "platform/netbsd/platform.h",
@@ -167,11 +168,13 @@ NSYNC_INTERNAL_HEADERS_PLATFORM = [
     "platform/macos/platform.h",
     "platform/pmax/cputype.h",
     "platform/posix/nsync_time_init.h",
+    "platform/posix/platform_c++11_os.h",
     "platform/ppc32/cputype.h",
     "platform/ppc64/cputype.h",
     "platform/shark/cputype.h",
     "platform/tcc/compiler.h",
     "platform/win32/platform.h",
+    "platform/win32/platform_c++11_os.h",
     "platform/x86_32/cputype.h",
     "platform/x86_64/cputype.h",
 ]
@@ -256,7 +259,7 @@ cc_library(
     srcs = NSYNC_SRC_GENERIC + NSYNC_SRC_PLATFORM,
     hdrs = NSYNC_HDR_GENERIC,
     copts = NSYNC_OPTS,
-    includes = ["."],
+    includes = ["public"],
     textual_hdrs = NSYNC_INTERNAL_HEADERS + NSYNC_INTERNAL_HEADERS_PLATFORM,
 )
 
@@ -266,7 +269,7 @@ cc_library(
     srcs = NSYNC_SRC_GENERIC + NSYNC_SRC_PLATFORM_CPP,
     hdrs = NSYNC_HDR_GENERIC,
     copts = NSYNC_OPTS_CPP,
-    includes = ["."],
+    includes = ["public"],
     textual_hdrs = NSYNC_INTERNAL_HEADERS + NSYNC_INTERNAL_HEADERS_PLATFORM,
 )
 

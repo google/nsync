@@ -58,9 +58,9 @@ double nsync_time_to_dbl (nsync_time t) {
 }
 
 nsync_time nsync_time_from_dbl (double d) {
-	time_t s = d;
+	time_t s = (time_t) d;
 	if (d < s) {
 		s--;
 	}
-	return (nsync_time_s_ns (s, (d - (double) s) * 1e9));
+	return (nsync_time_s_ns (s, (unsigned) ((d - (double) s) * 1e9)));
 }

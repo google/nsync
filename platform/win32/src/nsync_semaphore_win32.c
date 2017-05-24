@@ -56,8 +56,8 @@ int nsync_mu_semaphore_p_with_deadline (nsync_semaphore *s, nsync_time abs_deadl
 					result = WaitForSingleObject (*h, 1000*1000);
 				} else {
 					result = WaitForSingleObject (*h,
-						NSYNC_TIME_SEC (delay) * 1000 +
-							(NSYNC_TIME_NSEC (delay) + 999999) / (1000 * 1000));
+						(unsigned) (NSYNC_TIME_SEC (delay) * 1000 +
+							(NSYNC_TIME_NSEC (delay) + 999999) / (1000 * 1000)));
 				}
 			}
 			if (result == WAIT_TIMEOUT) {

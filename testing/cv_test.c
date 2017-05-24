@@ -465,15 +465,24 @@ static void test_cv_debug (testing t) {
 	int i;
 	int len = 1024;
 	char *tmp;
+	char *buf;
+	int buflen;
 	struct debug_state xs;
 	struct debug_state *s = &xs;
 	memset (s, 0, sizeof (*s));
 
 	/* Use nsync_*_debugger to check that they work. */
 	tmp = nsync_mu_debugger (&s->mu);
-	*slot (s, "init_mu0") = strcpy ((char *) malloc (strlen (tmp)+1), tmp);
+	buflen = strlen (tmp)+1;
+	buf = (char *) malloc (buflen);
+	snprintf (buf, buflen, "%s", tmp);
+	*slot (s, "init_mu0") = buf;
+
 	tmp = nsync_cv_debugger (&s->cv);
-	*slot (s, "init_cv0") = strcpy ((char *) malloc (strlen (tmp)+1), tmp);
+	buflen = strlen (tmp)+1;
+	buf = (char *) malloc (buflen);
+	snprintf (buf, buflen, "%s", tmp);
+	*slot (s, "init_cv0") = buf;
 
 	/* Get the same information via the other routines */
 	*slot (s, "init_mu1") = nsync_mu_debug_state (

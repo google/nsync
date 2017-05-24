@@ -45,8 +45,8 @@ int nsync_pthread_cond_timedwait (pthread_cond_t *cv, pthread_mutex_t *mu,
 					again = (result == ERROR_TIMEOUT);
 				} else {
 					result = SleepConditionVariableCS (cv, mu,
-						delay.tv_sec * 1000 +
-						(delay.tv_nsec + 999999) / (1000 * 1000));
+						(unsigned) (delay.tv_sec * 1000 +
+						(delay.tv_nsec + 999999) / (1000 * 1000)));
 					if (result == ERROR_TIMEOUT) {
 						/* Windows often generates early wakeups. */
 						clock_gettime (CLOCK_REALTIME, &now);

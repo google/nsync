@@ -59,7 +59,7 @@ nsync_time nsync_from_time_point_ (nsync_cpp_time_point_ tp) {
 	struct timespec ts;
 	memset (&ts, 0, sizeof (ts));
 	ts.tv_sec = ns / NSYNC_NS_IN_S_;
-	ts.tv_nsec = ns - ts.tv_sec * NSYNC_NS_IN_S_;
+	ts.tv_nsec = (long) (ns - ts.tv_sec * NSYNC_NS_IN_S_);
 	return (ts);
 }
 

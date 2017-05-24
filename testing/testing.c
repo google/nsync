@@ -15,6 +15,7 @@
 #include "platform.h"
 #include "atm_log.h"
 #include "nsync.h"
+#include "compiler.h"
 #include "atomic.h"
 #include "time_extra.h"
 #include "smprintf.h"
@@ -275,7 +276,7 @@ static void run_benchmark (testing t) {
 		if (elapsed < 1e-1) {
 			elapsed = 1e-1;
 		}
-		mul = target / elapsed;
+		mul = (int32_t) (target / elapsed);
 		while (elapsed * mul * 4 < target * 5) {
 			mul++;
 		}
@@ -323,7 +324,7 @@ static int match (const char *pat, const char *str) {
 			m = blen + 128;
 			buf = mbuf = (char *) realloc (mbuf, m + 1);
 		}
-		strncpy (buf, &pat[i], blen);
+		memcpy (buf, &pat[i], blen);
 		buf[blen] = '\0';
 		if (blen > 0 && buf[blen - 1] == '$') {
 			int slen = strlen (str);

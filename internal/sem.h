@@ -23,7 +23,7 @@
 NSYNC_CPP_START_
 
 typedef struct nsync_semaphore_s_ {
-	void *sem_space[20]; /* space used by implementation */
+	void *sem_space[32]; /* space used by implementation */
 } nsync_semaphore;
 
 /* Initialize *s; the initial value is 0. */

@@ -50,7 +50,7 @@ static void starve_data_init (starve_data *sd, int threads) {
 static void starve_with_readers (starve_data *sd, nsync_time period,
 				 uint32_t parity, nsync_time deadline) {
 	nsync_time now;
-	uint32_t period_us = nsync_time_to_dbl (period) * 1e6;
+	uint32_t period_us = (uint32_t) (nsync_time_to_dbl (period) * 1e6);
 	nsync_mu_rlock (&sd->mu);
 
 	nsync_mu_lock (&sd->control_mu);
@@ -61,7 +61,7 @@ static void starve_with_readers (starve_data *sd, nsync_time period,
 	     !sd->cancel && nsync_time_cmp (now, deadline) < 0;
 	     now = nsync_time_now ()) {
 		uint32_t new_us;
-		uint32_t now_us = nsync_time_to_dbl (nsync_time_sub (now, sd->start)) * 1e6;
+		uint32_t now_us = (uint32_t) (nsync_time_to_dbl (nsync_time_sub (now, sd->start)) * 1e6);
 		uint32_t index = (now_us + period_us - 1) / period_us;
 		if ((index & 1) != parity) {
 			index++;

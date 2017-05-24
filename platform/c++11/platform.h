@@ -34,9 +34,9 @@
 /* We could include pthread.h, if we knew it existed.
    Instead we implement the things the tests need using C++11 equivalents. */
 
-typedef std::mutex nsync_pthread_mutex_;
-static inline int nsync_pthread_mutex_lock_ (nsync_pthread_mutex_ *mu) { mu->lock (); return (0); }
-static inline int nsync_pthread_mutex_unlock_ (nsync_pthread_mutex_ *mu) { mu->unlock (); return (0); }
+typedef std::mutex *nsync_pthread_mutex_;
+static inline int nsync_pthread_mutex_lock_ (nsync_pthread_mutex_ *mu) { (*mu)->lock (); return (0); }
+static inline int nsync_pthread_mutex_unlock_ (nsync_pthread_mutex_ *mu) { (*mu)->unlock (); return (0); }
 #undef pthread_mutex_t
 #undef pthread_mutex_lock
 #undef pthread_mutex_unlock
@@ -45,27 +45,27 @@ static inline int nsync_pthread_mutex_unlock_ (nsync_pthread_mutex_ *mu) { mu->u
 #define pthread_mutex_t nsync_pthread_mutex_
 #define pthread_mutex_lock nsync_pthread_mutex_lock_
 #define pthread_mutex_unlock nsync_pthread_mutex_unlock_
-#define pthread_mutex_init(mu,attr) new (mu) nsync_pthread_mutex_
-#define pthread_mutex_destroy(mu) /*no-op*/
+#define pthread_mutex_init(mu,attr) (*(mu) = new std::mutex)
+#define pthread_mutex_destroy(mu) delete *(mu)
 
-typedef std::condition_variable nsync_pthread_cond_;
-static inline int nsync_pthread_cond_broadcast_ (nsync_pthread_cond_ *cv) { cv->notify_all (); return (0); }
-static inline int nsync_pthread_cond_signal_ (nsync_pthread_cond_ *cv) { cv->notify_one (); return (0); }
+typedef std::condition_variable *nsync_pthread_cond_;
+static inline int nsync_pthread_cond_broadcast_ (nsync_pthread_cond_ *cv) { (*cv)->notify_all (); return (0); }
+static inline int nsync_pthread_cond_signal_ (nsync_pthread_cond_ *cv) { (*cv)->notify_one (); return (0); }
 static inline int nsync_pthread_cond_wait_ (nsync_pthread_cond_ *cv, nsync_pthread_mutex_ *mu) {
-	std::unique_lock<std::mutex> mu_mu (*mu, std::defer_lock);
-	cv->wait (mu_mu);
+	std::unique_lock<std::mutex> mu_mu (**mu, std::adopt_lock);
+	(*cv)->wait (mu_mu);
 	mu_mu.release ();
 	return (0);
 }
 static inline int nsync_pthread_cond_timedwait_ (nsync_pthread_cond_ *cv, nsync_pthread_mutex_ *mu,
 						const struct timespec *abstimeout) {
 	std::cv_status result = std::cv_status::no_timeout;
-	std::unique_lock<std::mutex> mu_mu (*mu, std::defer_lock);
+	std::unique_lock<std::mutex> mu_mu (**mu, std::adopt_lock);
 	if (abstimeout == NULL || abstimeout->tv_sec >= 0x7fffffff) {
-		cv->wait (mu_mu);
+		(*cv)->wait (mu_mu);
 	} else {
 		std::chrono::system_clock::time_point epoch;
-		result = cv->wait_until (mu_mu,
+		result = (*cv)->wait_until (mu_mu,
 					 epoch + std::chrono::nanoseconds (
 					     abstimeout->tv_nsec +
 					     1000 * 1000 * 1000 * (int64_t) abstimeout->tv_sec));
@@ -85,45 +85,45 @@ static inline int nsync_pthread_cond_timedwait_ (nsync_pthread_cond_ *cv, nsync_
 #define pthread_cond_signal nsync_pthread_cond_signal_
 #define pthread_cond_wait nsync_pthread_cond_wait_
 #define pthread_cond_timedwait nsync_pthread_cond_timedwait_
-#define pthread_cond_init(cv, attr) new (cv) nsync_pthread_cond_
-#define pthread_cond_destroy(cv) /*no-op*/
+#define pthread_cond_init(cv, attr) (*(cv) = new std::condition_variable)
+#define pthread_cond_destroy(cv) delete *(cv)
 
-struct nsync_pthread_rwlock_ {
-	nsync_pthread_rwlock_ () : lock (0) {}
+typedef struct nsync_pthread_rwlock_s {
+	nsync_pthread_rwlock_s () : lock (0) {}
         int lock; /* -1 == exclusive; 0==unlocked; +ve == reader count */
         std::mutex mu;
         std::condition_variable cv;
-};
+} *nsync_pthread_rwlock_;
 static inline int nsync_pthread_rwlock_wrlock_ (nsync_pthread_rwlock_ *rw) {
-	std::unique_lock<std::mutex> rw_mu (rw->mu, std::defer_lock);
+	std::unique_lock<std::mutex> rw_mu ((*rw)->mu, std::defer_lock);
 	rw_mu.lock ();
-	while (rw->lock != 0) {
-		rw->cv.wait (rw_mu);
+	while ((*rw)->lock != 0) {
+		(*rw)->cv.wait (rw_mu);
 	}
-	rw->lock = -1;
+	(*rw)->lock = -1;
 	rw_mu.unlock ();
 	return (0);
 }
 static inline int nsync_pthread_rwlock_rdlock_ (nsync_pthread_rwlock_ *rw) {
-	std::unique_lock<std::mutex> rw_mu (rw->mu, std::defer_lock);
+	std::unique_lock<std::mutex> rw_mu ((*rw)->mu, std::defer_lock);
 	rw_mu.lock ();
-	while (rw->lock == -1) {
-		rw->cv.wait (rw_mu);
+	while ((*rw)->lock == -1) {
+		(*rw)->cv.wait (rw_mu);
 	}
-	rw->lock++;
+	(*rw)->lock++;
 	rw_mu.unlock ();
 	return (0);
 }
 static inline int nsync_pthread_rwlock_unlock_ (nsync_pthread_rwlock_ *rw) {
-	std::unique_lock<std::mutex> rw_mu (rw->mu, std::defer_lock);
+	std::unique_lock<std::mutex> rw_mu ((*rw)->mu, std::defer_lock);
 	rw_mu.lock ();
-	if (rw->lock == -1) {
-		rw->lock = 0;
-	} else if (rw->lock > 0) {
-		rw->lock--;
+	if ((*rw)->lock == -1) {
+		(*rw)->lock = 0;
+	} else if ((*rw)->lock > 0) {
+		(*rw)->lock--;
 	}
-	if (rw->lock == 0) {
-		rw->cv.notify_all ();
+	if ((*rw)->lock == 0) {
+		(*rw)->cv.notify_all ();
 	}
 	rw_mu.unlock ();
 	return (0);
@@ -138,8 +138,8 @@ static inline int nsync_pthread_rwlock_unlock_ (nsync_pthread_rwlock_ *rw) {
 #define pthread_rwlock_wrlock nsync_pthread_rwlock_wrlock_
 #define pthread_rwlock_rdlock nsync_pthread_rwlock_rdlock_
 #define pthread_rwlock_unlock nsync_pthread_rwlock_unlock_
-#define pthread_rwlock_init(rw,attr) new (rw) nsync_pthread_rwlock_
-#define pthread_rwlock_destroy(rw) /*no-op*/
+#define pthread_rwlock_init(rw,attr) (*(rw) = new nsync_pthread_rwlock_s)
+#define pthread_rwlock_destroy(rw) delete *(rw)
 
 
 typedef int nsync_pthread_once_type_;
@@ -168,5 +168,8 @@ static inline void nsync_pthread_once_ (nsync_pthread_once_type_ *o, void (*f) (
 #undef pthread_once
 #define pthread_once_t nsync_pthread_once_type_
 #define pthread_once nsync_pthread_once_
+
+/* Some platforms need more OS-specific help. */
+#include "platform_c++11_os.h"
 
 #endif /*NSYNC_PLATFORM_CPP11_PLATFORM_H_*/
