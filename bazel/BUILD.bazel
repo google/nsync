@@ -51,6 +51,41 @@ config_setting(
     values = {"cpu": "darwin"},
 )
 
+config_setting(
+    name = "android_x86_32",
+    values = {"cpu": "x86"},
+)
+
+config_setting(
+    name = "android_x86_64",
+    values = {"cpu": "x86_64"},
+)
+
+config_setting(
+    name = "android_armeabi",
+    values = {"cpu": "armeabi"},
+)
+
+config_setting(
+    name = "android_arm",
+    values = {"cpu": "armeabi-v7a"},
+)
+
+config_setting(
+    name = "android_arm64",
+    values = {"cpu": "arm64-v8a"},
+)
+
+config_setting(
+    name = "msvc_windows_x86_64",
+    values = {"cpu": "x64_windows_msvc"},
+)
+
+config_setting(
+    name = "freebsd",
+    values = {"cpu": "freebsd"},
+)
+
 # ---------------------------------------------
 # Compilation options.
 
@@ -66,6 +101,11 @@ NSYNC_OPTS_GENERIC = select({
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":android_x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
+    ":android_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":android_armeabi": ["-I" + pkg_path_name() + "/platform/arm"],
+    ":android_arm": ["-I" + pkg_path_name() + "/platform/arm"],
+    ":android_arm64": ["-I" + pkg_path_name() + "/platform/aarch64"],
 }) + [
     "-I" + pkg_path_name() + "/public",
     "-I" + pkg_path_name() + "/internal",
@@ -82,6 +122,11 @@ NSYNC_OPTS = select({
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
+    ":android_x86_32": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":android_x86_64": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":android_armeabi": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":android_arm": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":android_arm64": ["-I" + pkg_path_name() + "/platform/linux"],
     "//conditions:default": [],
 }) + select({
     # Select the compiler include directory.
@@ -90,6 +135,11 @@ NSYNC_OPTS = select({
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":android_x86_32": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":android_x86_64": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":android_armeabi": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":android_arm": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":android_arm64": ["-I" + pkg_path_name() + "/platform/gcc"],
 }) + NSYNC_OPTS_GENERIC
 
 # Options for C++11 build, rather then C build.
@@ -209,6 +259,11 @@ NSYNC_SRC_PLATFORM = select({
     ":gcc_linux_aarch64": NSYNC_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_SRC_MACOS,
+    ":android_x86_32": NSYNC_SRC_LINUX,
+    ":android_x86_64": NSYNC_SRC_LINUX,
+    ":android_armeabi": NSYNC_SRC_LINUX,
+    ":android_arm": NSYNC_SRC_LINUX,
+    ":android_arm64": NSYNC_SRC_LINUX,
 })
 
 # C++11-specific (OS and architecture independent) library source.
@@ -217,8 +272,11 @@ NSYNC_SRC_PLATFORM_CPP = [
     "platform/c++11/src/time_rep_timespec.cc",
     "platform/c++11/src/nsync_panic.cc",
     "platform/c++11/src/yield.cc",
-    "platform/c++11/src/per_thread_waiter.cc",
-]
+] + select({
+    # MacOS doesn't have C++11 thread local storage.
+    ":clang_macos_x86_64": ["platform/posix/src/per_thread_waiter.c"],
+    "//conditions:default": ["platform/c++11/src/per_thread_waiter.cc"],
+})
 
 # Generic library source.
 NSYNC_SRC_GENERIC = [
@@ -273,6 +331,15 @@ cc_library(
     textual_hdrs = NSYNC_INTERNAL_HEADERS + NSYNC_INTERNAL_HEADERS_PLATFORM,
 )
 
+# nsync_headers provides just the header files for use in projects that need to
+# build shared libraries for dynamic loading.  Bazel seems unable to cope
+# otherwise.
+cc_library(
+    name = "nsync_headers",
+    hdrs = glob(["public/*.h"]),
+    includes = ["public"],
+)
+
 # ---------------------------------------------
 # Test code.
 
@@ -294,6 +361,11 @@ NSYNC_TEST_SRC_PLATFORM = select({
     ":gcc_linux_aarch64": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_TEST_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_TEST_SRC_MACOS,
+    ":android_x86_32": NSYNC_TEST_SRC_LINUX,
+    ":android_x86_64": NSYNC_TEST_SRC_LINUX,
+    ":android_armeabi": NSYNC_TEST_SRC_LINUX,
+    ":android_arm": NSYNC_TEST_SRC_LINUX,
+    ":android_arm64": NSYNC_TEST_SRC_LINUX,
 })
 
 # C++11-specific (OS and architecture independent) test library source.

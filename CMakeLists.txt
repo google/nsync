@@ -1,7 +1,14 @@
 cmake_minimum_required (VERSION 2.8.12)
 
-# Set variable NSYNC_LANGUAGE to "c++11" to build with C++11.
+# nsync provides portable synchronization primitives, such as mutexes and
+# condition variables.
 project (nsync)
+
+# Set variable NSYNC_LANGUAGE to "c++11" to build with C++11
+# rather than C.
+
+# Some builds need position-independent code.
+set (CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # -----------------------------------------------------------------
 # Platform dependencies
@@ -24,7 +31,7 @@ set (NSYNC_POSIX_SRC
 # Pick the include directory for the operating system.
 if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
 	include_directories ("${PROJECT_SOURCE_DIR}/platform/c++11")
-	add_definitions("-DNSYNC_USE_CPP11_TIMEPOINT -DNSYNC_ATOMIC_CPP11")
+	add_definitions ("-DNSYNC_USE_CPP11_TIMEPOINT -DNSYNC_ATOMIC_CPP11")
 	set (NSYNC_OS_CPP_SRC
 		"platform/c++11/src/nsync_semaphore_mutex.cc"
 		"platform/c++11/src/per_thread_waiter.cc"
@@ -258,3 +265,27 @@ foreach (t IN ITEMS ${NSYNC_TESTS})
 	target_link_libraries (${t} nsync_test nsync)
 	add_test (NAME ${t} COMMAND ${t})
 endforeach (t)
+
+install (TARGETS nsync
+	LIBRARY DESTINATION lib COMPONENT RuntimeLibraries
+	ARCHIVE DESTINATION lib COMPONENT Development)
+
+set (NSYNC_INCLUDES
+	"public/nsync.h"
+	"public/nsync_atomic.h"
+	"public/nsync_counter.h"
+	"public/nsync_cpp.h"
+	"public/nsync_cv.h"
+	"public/nsync_debug.h"
+	"public/nsync_mu.h"
+	"public/nsync_mu_wait.h"
+	"public/nsync_note.h"
+	"public/nsync_once.h"
+	"public/nsync_time.h"
+	"public/nsync_time_internal.h"
+	"public/nsync_waiter.h"
+)
+
+foreach (NSYNC_INCLUDE ${NSYNC_INCLUDES})
+	install (FILES ${NSYNC_INCLUDE} DESTINATION include COMPONENT Development)
+endforeach ()
