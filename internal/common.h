@@ -27,7 +27,7 @@
 /* Annotations for race detectors. */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer)
-#include "third_party/dynamic_annotations/dynamic_annotations.h"
+#include "third_party/absl/base/dynamic_annotations.h"
 #define IGNORE_RACES_START() ANNOTATE_IGNORE_READS_AND_WRITES_BEGIN()
 #define IGNORE_RACES_END() ANNOTATE_IGNORE_READS_AND_WRITES_END()
 #endif

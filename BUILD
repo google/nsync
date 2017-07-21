@@ -8,8 +8,8 @@
 # "nsync" name space.
 #
 # BUILD file usage:
-#   deps = "//third_party/nsync" for C version
-#   deps = "//third_party/nsync:nsync_cpp" for C++11 version.
+#   deps = "@nsync://nsync" for C version
+#   deps = "@nsync://nsync_cpp" for C++11 version.
 # The latter uses no OS-specific system calls or architecture-specific atomic
 # operations.
 
@@ -86,6 +86,11 @@ config_setting(
     values = {"cpu": "freebsd"},
 )
 
+config_setting(
+    name = "ios_x86_64",
+    values = {"cpu": "ios_x86_64"},
+)
+
 # ---------------------------------------------
 # Compilation options.
 
@@ -101,6 +106,7 @@ NSYNC_OPTS_GENERIC = select({
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/arm"],
@@ -122,6 +128,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
+    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/linux"],
@@ -135,6 +142,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/gcc"],
@@ -150,8 +158,11 @@ NSYNC_OPTS_CPP = [
     "-DNSYNC_ATOMIC_CPP11",
     "-DNSYNC_USE_CPP11_TIMEPOINT",
     "-I" + pkg_path_name() + "/platform/c++11",
-    "-I" + pkg_path_name() + "/platform/gcc",  # must follow the -I...platform/c++11
-] + NSYNC_OPTS_GENERIC
+] + select({
+    # must follow the -I...platform/c++11
+    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/gcc_no_tls"],
+    "//conditions:default": ["-I" + pkg_path_name() + "/platform/gcc"],
+}) + NSYNC_OPTS_GENERIC
 
 # Link options (for tests) built in C (rather than C++11).
 NSYNC_LINK_OPTS = ["-pthread"]
@@ -217,6 +228,7 @@ NSYNC_INTERNAL_HEADERS_PLATFORM = [
     "platform/macos/atomic.h",
     "platform/macos/platform.h",
     "platform/pmax/cputype.h",
+    "platform/posix/cputype.h",
     "platform/posix/nsync_time_init.h",
     "platform/posix/platform_c++11_os.h",
     "platform/ppc32/cputype.h",
@@ -241,6 +253,15 @@ NSYNC_SRC_LINUX = [
     "platform/posix/src/nsync_panic.c",
 ]
 
+# Android-specific library source.
+NSYNC_SRC_ANDROID = [
+    "platform/posix/src/nsync_semaphore_sem_t.c",
+    "platform/posix/src/per_thread_waiter.c",
+    "platform/posix/src/yield.c",
+    "platform/posix/src/time_rep.c",
+    "platform/posix/src/nsync_panic.c",
+]
+
 # MacOS-specific library source.
 NSYNC_SRC_MACOS = [
     "platform/posix/src/clock_gettime.c",
@@ -259,11 +280,12 @@ NSYNC_SRC_PLATFORM = select({
     ":gcc_linux_aarch64": NSYNC_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_SRC_MACOS,
-    ":android_x86_32": NSYNC_SRC_LINUX,
-    ":android_x86_64": NSYNC_SRC_LINUX,
-    ":android_armeabi": NSYNC_SRC_LINUX,
-    ":android_arm": NSYNC_SRC_LINUX,
-    ":android_arm64": NSYNC_SRC_LINUX,
+    ":ios_x86_64": NSYNC_SRC_MACOS,
+    ":android_x86_32": NSYNC_SRC_ANDROID,
+    ":android_x86_64": NSYNC_SRC_ANDROID,
+    ":android_armeabi": NSYNC_SRC_ANDROID,
+    ":android_arm": NSYNC_SRC_ANDROID,
+    ":android_arm64": NSYNC_SRC_ANDROID,
 })
 
 # C++11-specific (OS and architecture independent) library source.
@@ -273,8 +295,14 @@ NSYNC_SRC_PLATFORM_CPP = [
     "platform/c++11/src/nsync_panic.cc",
     "platform/c++11/src/yield.cc",
 ] + select({
-    # MacOS doesn't have C++11 thread local storage.
+    # MacOS and Android don't have working C++11 thread local storage.
     ":clang_macos_x86_64": ["platform/posix/src/per_thread_waiter.c"],
+    ":android_x86_32": ["platform/posix/src/per_thread_waiter.c"],
+    ":android_x86_64": ["platform/posix/src/per_thread_waiter.c"],
+    ":android_armeabi": ["platform/posix/src/per_thread_waiter.c"],
+    ":android_arm": ["platform/posix/src/per_thread_waiter.c"],
+    ":android_arm64": ["platform/posix/src/per_thread_waiter.c"],
+    ":ios_x86_64": ["platform/posix/src/per_thread_waiter.c"],
     "//conditions:default": ["platform/c++11/src/per_thread_waiter.cc"],
 })
 
@@ -348,6 +376,11 @@ NSYNC_TEST_SRC_LINUX = [
     "platform/posix/src/start_thread.c",
 ]
 
+# Android-specific test library source.
+NSYNC_TEST_SRC_ANDROID = [
+    "platform/posix/src/start_thread.c",
+]
+
 # MacOS-specific test library source.
 NSYNC_TEST_SRC_MACOS = [
     "platform/posix/src/start_thread.c",
@@ -361,11 +394,12 @@ NSYNC_TEST_SRC_PLATFORM = select({
     ":gcc_linux_aarch64": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_TEST_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_TEST_SRC_MACOS,
-    ":android_x86_32": NSYNC_TEST_SRC_LINUX,
-    ":android_x86_64": NSYNC_TEST_SRC_LINUX,
-    ":android_armeabi": NSYNC_TEST_SRC_LINUX,
-    ":android_arm": NSYNC_TEST_SRC_LINUX,
-    ":android_arm64": NSYNC_TEST_SRC_LINUX,
+    ":ios_x86_64": NSYNC_TEST_SRC_MACOS,
+    ":android_x86_32": NSYNC_TEST_SRC_ANDROID,
+    ":android_x86_64": NSYNC_TEST_SRC_ANDROID,
+    ":android_armeabi": NSYNC_TEST_SRC_ANDROID,
+    ":android_arm": NSYNC_TEST_SRC_ANDROID,
+    ":android_arm64": NSYNC_TEST_SRC_ANDROID,
 })
 
 # C++11-specific (OS and architecture independent) test library source.
@@ -402,7 +436,7 @@ cc_library(
     hdrs = ["testing/testing.h"],
     copts = NSYNC_OPTS_CPP,
     textual_hdrs = NSYNC_TEST_HEADERS + NSYNC_INTERNAL_HEADERS_PLATFORM,
-    deps = [":nsync"],
+    deps = [":nsync_cpp"],
 )
 
 # ---------------------------------------------
