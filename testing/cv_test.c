@@ -580,6 +580,191 @@ static void test_cv_debug (testing t) {
 
 /* --------------------------- */
 
+/* Max number of waiter threads used in transfer test.
+   The last uses a conditional critical section, and others
+   use a condition variable.   */
+#define TRANSFER_MAX_WAITERS 8
+
+/* A struct cv_transfer is used to test cv-to-mu thread transfer.
+   There are up to TRANSFER_MAX_WAITERS waiter threads, and a wakeup thread.
+   Some threads wait using conditional critical sections,
+   and others using a condition variable. */
+struct cv_transfer {
+	nsync_mu mu;
+
+	nsync_cv cv;  /* signalled each time a cond[] element becomes non-zero */
+	/* Thread i waits for cond[i] to be non-zero; under mu.  */
+        int cond[TRANSFER_MAX_WAITERS];
+
+	nsync_mu control_mu;  /* protects fields below */
+	nsync_cv done_cv; /* signalled each time an element of done[] becomes non-zero */
+	int ready[TRANSFER_MAX_WAITERS];  /* set by waiters as they wait */
+	int done[TRANSFER_MAX_WAITERS];   /* set by completed waiters: to 1 by readers, and to 2 by writers */
+};
+
+/* Return whether *(int *)v != 0.  Used as a condition for nsync_mu_wait().  */
+static int int_is_non_zero (const void *v) {
+	return (0 != *(const int *)v);
+}
+
+/* Return when *pi becomes non-zero, where *pi is protected by *mu.
+   Acquires and releases *mu. */
+static void transfer_await_nonzero (nsync_mu *mu, int *pi) {
+	nsync_mu_lock (mu);
+	nsync_mu_wait (mu, &int_is_non_zero, pi, NULL);
+	nsync_mu_unlock (mu);
+}
+
+/* Set *pi to x value, where *pi is protected by *mu.
+   Acquires and releases *mu. */
+static void transfer_set (nsync_mu *mu, int *pi, int x) {
+	nsync_mu_lock (mu);
+	*pi = x;
+	nsync_mu_unlock (mu);
+}
+
+/* Lock and unlock routines for writers (index 0), and readers (index 1).  */
+static const struct {
+	void (*lock) (nsync_mu *);
+	void (*unlock) (nsync_mu *);
+} lock_type[2] = {
+	{ &nsync_mu_lock, &nsync_mu_unlock },
+	{ &nsync_mu_rlock, &nsync_mu_runlock },
+};
+
+/* Signal and broadcast routines */
+typedef void (*wakeup_func_type) (nsync_cv *);
+static wakeup_func_type wakeup_func[2] = { &nsync_cv_broadcast, &nsync_cv_signal };
+
+/* Acquire cvt->mu in write or read mode (depending on "reader"),
+   set cvt->ready[i], wait for cvt->cond[i] to become non-zero (using
+   a condition variable if use_cv!=0), then release cvt->mu, and
+   set cvt->done[i].
+   Used as the body of waiter threads created by test_cv_transfer(). */
+static void transfer_waiter_thread (struct cv_transfer *cvt, int i, int reader, int use_cv) {
+	(*lock_type[reader].lock) (&cvt->mu);
+	transfer_set (&cvt->control_mu, &cvt->ready[i], 1);
+	if (use_cv) {
+		while (!cvt->cond[i]) {
+			nsync_cv_wait (&cvt->cv, &cvt->mu);
+		}
+	} else {
+		nsync_mu_wait (&cvt->mu, &int_is_non_zero, &cvt->cond[i], NULL);
+	}
+	(*lock_type[reader].unlock) (&cvt->mu);
+
+	transfer_set (&cvt->control_mu, &cvt->done[i], reader? 1 : 2);
+	nsync_cv_broadcast (&cvt->done_cv);
+}
+
+/* Return whether all the elements a[0..n-1] are less than x. */
+static int are_all_below (int a[], int n, int x) {
+	int i;
+	for (i = 0; i != n && a[i] < x; i++) {
+	}
+	return (i == n);
+}
+
+CLOSURE_DECL_BODY4 (transfer_thread, struct cv_transfer *, int, int, int)
+
+/* Test cv-to-mutex queue transfer.  (See the code in cv.c, wake_waiters().)
+
+   The queue transfer needs to work regardless of:
+   - whether the mutex is also being used with conditional critical sections,
+   - whether reader locks are used,
+   - whether the waker signals from within the critical section (as it would in
+     a traditional monitor), or after that critical section, and
+   - the number of threads that might be awoken.  */
+static void test_cv_transfer (testing t) {
+	int waiters;	 /* number of waiters (in [2, TRANSFER_MAX_WAITERS]). */
+	int cv_writers;  /* number of cv_writers: -1 means all */
+	int ccs_reader; /* ccs waiter is a reader */
+	int wakeup_type; /* bits: use_signal and after_region */
+	enum { use_signal = 0x1 };  /* use signal rather than broadcast */
+	enum { after_region = 0x2 };  /* perform wakeup after region, rather than within */
+	struct cv_transfer Xcvt;
+	struct cv_transfer *cvt = &Xcvt;  /* So all accesses are of form cvt-> */
+	int i;
+
+	/* for all settings of all of wakeup_type, ccs_reader, cv_writers,
+	   and various different numbers of waiters */
+	for (waiters = 2; waiters <= TRANSFER_MAX_WAITERS; waiters <<= 1) {
+		for (wakeup_type = 0; wakeup_type != 4; wakeup_type++) {
+			for (cv_writers = -1; cv_writers != 3; cv_writers++) {
+				for (ccs_reader = 0; ccs_reader != 2; ccs_reader++) {
+					if (testing_verbose (t)) {
+						TEST_LOG (t, ("transfer waiters %d wakeup_type %d  cv_writers %d  ccs_reader %d\n",
+							      waiters, wakeup_type, cv_writers, ccs_reader));
+					}
+					memset (cvt, 0, sizeof (*cvt));
+
+					/* Start the waiter threads that use condition variables. */
+					for (i = 0; i < waiters-1; i++) {
+						int is_reader = (cv_writers != -1 && i < waiters-1-cv_writers);
+						closure_fork (closure_transfer_thread (&transfer_waiter_thread, cvt, i,
+										       is_reader, 1/*use_cv*/));
+						transfer_await_nonzero (&cvt->control_mu, &cvt->ready[i]);
+					}
+					/* Start the waiter thread that uses conditional critical sections. */
+					closure_fork (closure_transfer_thread (&transfer_waiter_thread, cvt, i,
+									       ccs_reader, 0/*use_cv*/));
+					/* Wait for all waiters to enter their regions. */
+					for (i = 0; i != waiters; i++) {
+						transfer_await_nonzero (&cvt->control_mu, &cvt->ready[i]);
+					}
+
+					nsync_mu_lock (&cvt->mu);
+					/* At this point, all the waiter threads are in waiting: 
+					   they have set their ready[] flags, and have released cvt->mu. */
+
+					/* Mark all the condition-variable as runnable,
+					   and signal at least one of them.
+					   This may wake more than one, depending on
+					   the presence of readers, and the use of
+					   signal vs broadcast.  */
+					for (i = 0; i != waiters-1; i++) {
+						cvt->cond[i] = 1;
+					}
+					if ((wakeup_type & after_region) == 0) {
+						(*wakeup_func[wakeup_type & use_signal]) (&cvt->cv);
+					}
+					nsync_mu_unlock (&cvt->mu);
+					if ((wakeup_type & after_region) != 0) {
+						for (i = 0; i != waiters-1; i++) {
+							(*wakeup_func[wakeup_type & use_signal]) (&cvt->cv);
+						}
+					}
+
+					/* Wait for at least one woken waiter to proceed,
+					   and at least one writer if there is one.  */
+					nsync_mu_lock (&cvt->control_mu);
+					while (are_all_below (&cvt->done[0], waiters-1, cv_writers!=0? 2 : 1)) {
+						nsync_cv_wait (&cvt->done_cv, &cvt->control_mu);
+					}
+					nsync_mu_unlock (&cvt->control_mu);
+
+					/* Wake all remaining threads. */
+					nsync_cv_broadcast (&cvt->cv);
+					transfer_set (&cvt->mu, &cvt->cond[waiters-1], 1);
+
+					/* And wait for all to finish. */
+					for (i = 0; i != waiters; i++) {
+						transfer_await_nonzero (&cvt->control_mu, &cvt->done[i]);
+					}
+
+					if (testing_verbose (t)) {
+						TEST_LOG (t, ("transfer waiters %d wakeup_type %d  cv_writers %d  ccs_reader %d complete\n",
+							      waiters, wakeup_type, cv_writers, ccs_reader));
+					}
+				}
+			}
+		}
+	}
+}
+
+
+/* --------------------------- */
+
 int main (int argc, char *argv[]) {
 	testing_base tb = testing_new (argc, argv, 0);
 	TEST_RUN (tb, test_cv_producer_consumer0);
@@ -592,5 +777,6 @@ int main (int argc, char *argv[]) {
 	TEST_RUN (tb, test_cv_deadline);
 	TEST_RUN (tb, test_cv_cancel);
 	TEST_RUN (tb, test_cv_debug);
+	TEST_RUN (tb, test_cv_transfer);
 	return (testing_base_exit (tb));
 }

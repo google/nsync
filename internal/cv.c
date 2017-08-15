@@ -48,18 +48,22 @@ static void wake_waiters (nsync_dll_list_ to_wake_list, int all_readers) {
 	}
 	if (pmu != NULL) { /* waiter is associated with the nsync_mu *pmu. */
 		/* We will transfer elements of to_wake_list to *pmu if all of:
+		    - some thread holds the lock, and
 		    - *pmu's spinlock is not held, and
 		    - either *pmu cannot be acquired in the mode of the first
 		      waiter, or there's more than one thread on to_wake_list
 		      and not all are readers, and
 		    - we acquire the spinlock on the first try.
 		   The spinlock acquisition also marks *pmu as having waiters.
+		   The requirement that some thread holds the lock ensures
+		   that at least one of the transferred waiters will be woken.
 		   */
 		uint32_t old_mu_word = ATM_LOAD (&pmu->word);
 		int first_cant_acquire = ((old_mu_word & first_w->l_type->zero_to_acquire) != 0);
 		next = nsync_dll_next_ (to_wake_list, first_waiter);
-		if ((old_mu_word&MU_SPINLOCK) == 0 &&
-		    (first_cant_acquire || (first_waiter != next && !all_readers)) &&
+		if ((old_mu_word&MU_ANY_LOCK) != 0 &&
+		    (old_mu_word&MU_SPINLOCK) == 0 &&
+		    (first_cant_acquire || (next != NULL && !all_readers)) &&
 		    ATM_CAS_ACQ (&pmu->word, old_mu_word,
 				 (old_mu_word|MU_SPINLOCK|MU_WAITING) &
 				 ~MU_ALL_FALSE)) {
@@ -128,11 +132,6 @@ static void wake_waiters (nsync_dll_list_ to_wake_list, int all_readers) {
 					     (old_mu_word|set_on_release) & ~MU_SPINLOCK)) {
 				old_mu_word = ATM_LOAD (&pmu->word);
 			}
-		} else if ((old_mu_word & (MU_SPINLOCK | MU_ANY_LOCK | MU_DESIG_WAKER)) == 0) {
-			/* If spinlock and lock not held, try to set MU_DESIG_WAKER because at
-			   least one thread is to be woken.  An optimization; ignore failures. */
-			ATM_CAS_RELACQ (&pmu->word, old_mu_word,
-					old_mu_word|MU_DESIG_WAKER);
 		}
 	}
 
