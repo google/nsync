@@ -78,7 +78,7 @@ config_setting(
 
 config_setting(
     name = "msvc_windows_x86_64",
-    values = {"cpu": "x64_windows_msvc"},
+    values = {"cpu": "x64_windows"},
 )
 
 config_setting(
@@ -112,13 +112,19 @@ NSYNC_OPTS_GENERIC = select({
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/arm"],
     ":android_arm": ["-I" + pkg_path_name() + "/platform/arm"],
     ":android_arm64": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
 }) + [
     "-I" + pkg_path_name() + "/public",
     "-I" + pkg_path_name() + "/internal",
     "-I" + pkg_path_name() + "/platform/posix",
-    "-D_POSIX_C_SOURCE=200809L",
-    "-pthread",
-]
+] + select({
+    ":msvc_windows_x86_64": [
+    ],
+    "//conditions:default": [
+        "-D_POSIX_C_SOURCE=200809L",
+        "-pthread",
+    ],
+})
 
 # Options for C build, rather then C++11 build.
 NSYNC_OPTS = select({
@@ -134,6 +140,7 @@ NSYNC_OPTS = select({
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_arm": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_arm64": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/win32"],
     "//conditions:default": [],
 }) + select({
     # Select the compiler include directory.
@@ -148,27 +155,44 @@ NSYNC_OPTS = select({
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_arm": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_arm64": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/msvc"],
 }) + NSYNC_OPTS_GENERIC
 
 # Options for C++11 build, rather then C build.
-NSYNC_OPTS_CPP = [
-    "-x",
-    "c++",
-    "-std=c++11",
+NSYNC_OPTS_CPP = select({
+    ":msvc_windows_x86_64": [
+        "/TP",
+    ],
+    "//conditions:default": [
+        "-x",
+        "c++",
+        "-std=c++11",
+    ],
+}) + [
     "-DNSYNC_ATOMIC_CPP11",
     "-DNSYNC_USE_CPP11_TIMEPOINT",
     "-I" + pkg_path_name() + "/platform/c++11",
 ] + select({
     # must follow the -I...platform/c++11
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/gcc_no_tls"],
+    ":msvc_windows_x86_64": [
+        "-I" + pkg_path_name() + "/platform/win32",
+        "-I" + pkg_path_name() + "/platform/msvc",
+    ],
     "//conditions:default": ["-I" + pkg_path_name() + "/platform/gcc"],
 }) + NSYNC_OPTS_GENERIC
 
 # Link options (for tests) built in C (rather than C++11).
-NSYNC_LINK_OPTS = ["-pthread"]
+NSYNC_LINK_OPTS = select({
+    ":msvc_windows_x86_64": [],
+    "//conditions:default": ["-pthread"],
+})
 
 # Link options (for tests) built in C++11 (rather than C).
-NSYNC_LINK_OPTS_CPP = ["-pthread"]
+NSYNC_LINK_OPTS_CPP = select({
+    ":msvc_windows_x86_64": [],
+    "//conditions:default": ["-pthread"],
+})
 
 # ---------------------------------------------
 # Header files the source may include.
@@ -272,6 +296,20 @@ NSYNC_SRC_MACOS = [
     "platform/posix/src/nsync_panic.c",
 ]
 
+# Windows-specific library source.
+NSYNC_SRC_WINDOWS = [
+    "platform/posix/src/nsync_panic.c",
+    "platform/posix/src/per_thread_waiter.c",
+    "platform/posix/src/time_rep.c",
+    "platform/posix/src/yield.c",
+    "platform/win32/src/clock_gettime.c",
+    "platform/win32/src/init_callback_win32.c",
+    "platform/win32/src/nanosleep.c",
+    "platform/win32/src/nsync_semaphore_win32.c",
+    "platform/win32/src/pthread_cond_timedwait_win32.c",
+    "platform/win32/src/pthread_key_win32.cc",
+]
+
 # OS-specific library source.
 NSYNC_SRC_PLATFORM = select({
     # Linux is the only OS nsync supports in bazel currently.
@@ -286,6 +324,7 @@ NSYNC_SRC_PLATFORM = select({
     ":android_armeabi": NSYNC_SRC_ANDROID,
     ":android_arm": NSYNC_SRC_ANDROID,
     ":android_arm64": NSYNC_SRC_ANDROID,
+    ":msvc_windows_x86_64": NSYNC_SRC_WINDOWS,
 })
 
 # C++11-specific (OS and architecture independent) library source.
@@ -303,6 +342,11 @@ NSYNC_SRC_PLATFORM_CPP = [
     ":android_arm": ["platform/posix/src/per_thread_waiter.c"],
     ":android_arm64": ["platform/posix/src/per_thread_waiter.c"],
     ":ios_x86_64": ["platform/posix/src/per_thread_waiter.c"],
+    ":msvc_windows_x86_64": [
+        "platform/win32/src/clock_gettime.c",
+        "platform/win32/src/pthread_key_win32.cc",
+        "platform/c++11/src/per_thread_waiter.cc",
+    ],
     "//conditions:default": ["platform/c++11/src/per_thread_waiter.cc"],
 })
 
@@ -386,6 +430,11 @@ NSYNC_TEST_SRC_MACOS = [
     "platform/posix/src/start_thread.c",
 ]
 
+# Windows-specific test library source.
+NSYNC_TEST_SRC_WINDOWS = [
+    "platform/win32/src/start_thread.c",
+]
+
 # OS-specific test library source.
 NSYNC_TEST_SRC_PLATFORM = select({
     # Linux is the only OS nsync supports in bazel currently.
@@ -400,6 +449,7 @@ NSYNC_TEST_SRC_PLATFORM = select({
     ":android_armeabi": NSYNC_TEST_SRC_ANDROID,
     ":android_arm": NSYNC_TEST_SRC_ANDROID,
     ":android_arm64": NSYNC_TEST_SRC_ANDROID,
+    ":msvc_windows_x86_64": NSYNC_TEST_SRC_WINDOWS,
 })
 
 # C++11-specific (OS and architecture independent) test library source.
