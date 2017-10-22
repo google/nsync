@@ -20,8 +20,8 @@ TESTS=counter_test cv_mu_timeout_stress_test cv_test cv_wait_example_test dll_te
 TEST_OBJS=counter_test.o cv_mu_timeout_stress_test.o cv_test.o cv_wait_example_test.o dll_test.o mu_starvation_test.o mu_test.o mu_wait_example_test.o mu_wait_test.o note_test.o once_test.o pingpong_test.o wait_test.o
 TEST_LIB_OBJS=array.o atm_log.o closure.o time_extra.o smprintf.o testing.o ${TEST_PLATFORM_OBJS}
 LIB_OBJS=common.o counter.o cv.o debug.o dll.o mu.o mu_wait.o note.o once.o sem_wait.o time_internal.o wait.o ${PLATFORM_OBJS}
-LIB=nsync.a
-TEST_LIB=nsync_test.a
+LIB=libnsync.a
+TEST_LIB=libnsync_test.a
 
 all: ${LIB}
 
