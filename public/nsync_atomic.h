@@ -33,7 +33,7 @@ NSYNC_CPP_END_
 #elif NSYNC_ATOMIC_C11
 #include <stdatomic.h>
 NSYNC_CPP_START_
-typedef uint_least32_t nsync_atomic_uint32_;
+typedef atomic_uint_least32_t nsync_atomic_uint32_;
 NSYNC_CPP_END_
 #define NSYNC_ATOMIC_UINT32_INIT_ 0
 #define NSYNC_ATOMIC_UINT32_LOAD_(p) (*(p))

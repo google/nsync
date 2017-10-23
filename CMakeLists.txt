@@ -53,6 +53,9 @@ if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
 	elseif ("${CMAKE_SYSTEM_NAME}X" STREQUAL "DarwinX")
 		include_directories ("${PROJECT_SOURCE_DIR}/platform/macos")
 		include_directories ("${PROJECT_SOURCE_DIR}/platform/posix")
+		# Some versions of MacOS, such as Sierra, require _DARWIN_C_SOURCE
+		# when including certin C++ standard header files, such as <mutex>.
+		add_definitions ("-D_DARWIN_C_SOURCE")
 		add_compile_options ("-std=c++11")
 		set (NSYNC_OS_SRC
 			${NSYNC_OS_CPP_SRC}

@@ -89,8 +89,9 @@ static __inline__ int atm_cas_relacq_u32_ (nsync_atomic_uint32_ *p, uint32_t o, 
 #define ATM_CAS_REL(p,o,n)       ATM_CAS_HELPER_ (rel,    (p), (o), (n))
 #define ATM_CAS_RELACQ(p,o,n)    ATM_CAS_HELPER_ (relacq, (p), (o), (n))
 
-#define ATM_LOAD(p)         (atomic_load_explicit (NSYNC_ATOMIC_UINT32_PTR_ (p), memory_order_relaxed))
-#define ATM_LOAD_ACQ(p)     (atomic_load_explicit (NSYNC_ATOMIC_UINT32_PTR_ (p), memory_order_acquire))
+/* Need a cast to remove "const" from some uses. */
+#define ATM_LOAD(p)         (atomic_load_explicit ((nsync_atomic_uint32_ *) NSYNC_ATOMIC_UINT32_PTR_ (p), memory_order_relaxed))
+#define ATM_LOAD_ACQ(p)     (atomic_load_explicit ((nsync_atomic_uint32_ *) NSYNC_ATOMIC_UINT32_PTR_ (p), memory_order_acquire))
 
 #define ATM_STORE(p,v)      (atomic_store_explicit (NSYNC_ATOMIC_UINT32_PTR_ (p), (v), memory_order_relaxed))
 #define ATM_STORE_REL(p,v)  (atomic_store_explicit (NSYNC_ATOMIC_UINT32_PTR_ (p), (v), memory_order_release))

@@ -47,6 +47,11 @@ config_setting(
 )
 
 config_setting(
+    name = "gcc_linux_s390x",
+    values = {"cpu": "s390x"},
+)
+
+config_setting(
     name = "clang_macos_x86_64",
     values = {"cpu": "darwin"},
 )
@@ -105,6 +110,7 @@ NSYNC_OPTS_GENERIC = select({
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
+    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/s390x"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
@@ -133,6 +139,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
+    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/linux"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/linux"],
@@ -148,6 +155,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/gcc"],
@@ -156,6 +164,13 @@ NSYNC_OPTS = select({
     ":android_arm": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_arm64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/msvc"],
+}) + select({
+    # Apple deprecated their atomics library, yet recent versions have no
+    # working version of stdatomic.h; so some recent versions need one, and
+    # other versions prefer the other.  For the moment, just ignore the
+    # depreaction.
+    ":clang_macos_x86_64": ["-Wno-deprecated-declarations"],
+    "//conditions:default": [],
 }) + NSYNC_OPTS_GENERIC
 
 # Options for C++11 build, rather then C build.
@@ -168,6 +183,11 @@ NSYNC_OPTS_CPP = select({
         "c++",
         "-std=c++11",
     ],
+}) + select({
+    # Some versions of MacOS (notably Sierra) require -D_DARWIN_C_SOURCE
+    # to include some standard C++11 headers, like <mutex>.
+    ":clang_macos_x86_64": ["-D_DARWIN_C_SOURCE"],
+    "//conditions:default": [],
 }) + [
     "-DNSYNC_ATOMIC_CPP11",
     "-DNSYNC_USE_CPP11_TIMEPOINT",
@@ -257,6 +277,7 @@ NSYNC_INTERNAL_HEADERS_PLATFORM = [
     "platform/posix/platform_c++11_os.h",
     "platform/ppc32/cputype.h",
     "platform/ppc64/cputype.h",
+    "platform/s390x/cputype.h",
     "platform/shark/cputype.h",
     "platform/tcc/compiler.h",
     "platform/win32/platform.h",
@@ -317,6 +338,7 @@ NSYNC_SRC_PLATFORM = select({
     ":gcc_linux_x86_64_2": NSYNC_SRC_LINUX,
     ":gcc_linux_aarch64": NSYNC_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_SRC_LINUX,
+    ":gcc_linux_s390x": NSYNC_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_SRC_MACOS,
     ":ios_x86_64": NSYNC_SRC_MACOS,
     ":android_x86_32": NSYNC_SRC_ANDROID,
@@ -442,6 +464,7 @@ NSYNC_TEST_SRC_PLATFORM = select({
     ":gcc_linux_x86_64_2": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_aarch64": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_ppc64": NSYNC_TEST_SRC_LINUX,
+    ":gcc_linux_s390x": NSYNC_TEST_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_TEST_SRC_MACOS,
     ":ios_x86_64": NSYNC_TEST_SRC_MACOS,
     ":android_x86_32": NSYNC_TEST_SRC_ANDROID,

@@ -31,9 +31,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+/* Some versions(!) of MacOS don't implement clock_gettime(). */
+#if !defined(CLOCK_REALTIME)
 #define CLOCK_REALTIME 0
 typedef int clockid_t;
 int clock_gettime (clockid_t clk_id, struct timespec *tp);
 #define TIMER_ABSTIME 1
+#endif /*CLOCK_REALTIME*/
 
 #endif /*NSYNC_PLATFORM_MACOS_PLATFORM_H_*/

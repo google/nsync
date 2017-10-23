@@ -1,5 +1,6 @@
 CC=clang++
-PLATFORM_CPPFLAGS=-DNSYNC_USE_CPP11_TIMEPOINT -DNSYNC_ATOMIC_CPP11 -I../../platform/c++11 -I../../platform/gcc -I../../platform/macos -I../../platform/posix -pthread
+# Some versions of MacOS (such as Sierra) require _DARWIN_C_SOURCE to include <mutex>, <condition_variable>, and <thread> (!)
+PLATFORM_CPPFLAGS=-DNSYNC_USE_CPP11_TIMEPOINT -DNSYNC_ATOMIC_CPP11 -D_DARWIN_C_SOURCE -I../../platform/c++11 -I../../platform/gcc -I../../platform/macos -I../../platform/posix -pthread
 PLATFORM_CFLAGS=-x c++ -std=c++11 -Werror -Wall -Wextra -pedantic
 PLATFORM_LDFLAGS=-pthread
 MKDEP=${CC} -x c++ -M -std=c++11
