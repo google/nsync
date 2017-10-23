@@ -20,21 +20,27 @@ TESTS=counter_test cv_mu_timeout_stress_test cv_test cv_wait_example_test dll_te
 TEST_OBJS=counter_test.o cv_mu_timeout_stress_test.o cv_test.o cv_wait_example_test.o dll_test.o mu_starvation_test.o mu_test.o mu_wait_example_test.o mu_wait_test.o note_test.o once_test.o pingpong_test.o wait_test.o
 TEST_LIB_OBJS=array.o atm_log.o closure.o time_extra.o smprintf.o testing.o ${TEST_PLATFORM_OBJS}
 LIB_OBJS=common.o counter.o cv.o debug.o dll.o mu.o mu_wait.o note.o once.o sem_wait.o time_internal.o wait.o ${PLATFORM_OBJS}
-LIB=nsync.a
+LIB=libnsync.a
+LIBALTNAME=nsync.a
 TEST_LIB=nsync_test.a
 
-all: ${LIB}
+all: ${LIB} ${LIBALTNAME}
 
 ${LIB}: ${LIB_OBJS}
 	${AR} cr ${LIB} $?
 	case "${RANLIB}" in "") ;; *) ${RANLIB} ${LIB};; esac
+
+# Older versions of this package exported a different library name.
+${LIBALTNAME}: ${LIB}
+	cp ${LIB} ${LIBALTNAME}
+	case "${RANLIB}" in "") ;; *) ${RANLIB} ${LIBALTNAME};; esac
 
 ${TEST_LIB}: ${TEST_LIB_OBJS}
 	${AR} cr ${TEST_LIB} $?
 	case "${RANLIB}" in "") ;; *) ${RANLIB} ${TEST_LIB};; esac
 
 clean:
-	rm -f ${LIB} ${TEST_LIB} ${TESTS} ${TEST_OBJS} ${TEST_LIB_OBJS} ${LIB_OBJS} mkdep run_tests
+	rm -f ${LIB} ${LIBALTNAME} ${TEST_LIB} ${TESTS} ${TEST_OBJS} ${TEST_LIB_OBJS} ${LIB_OBJS} mkdep run_tests
 
 tests: ${TESTS}
 
