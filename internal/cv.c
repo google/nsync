@@ -148,6 +148,16 @@ static void wake_waiters (nsync_dll_list_ to_wake_list, int all_readers) {
 
 /* ------------------------------------------ */
 
+/* Versions of nsync_mu_lock() and nsync_mu_unlock() that take "void *"
+   arguments, to avoid call through a function pointer of a different type,
+   which is undefined.  */
+static void void_mu_lock (void *mu) {
+	nsync_mu_lock ((nsync_mu *) mu);
+}
+static void void_mu_unlock (void *mu) {
+	nsync_mu_unlock ((nsync_mu *) mu);
+}
+
 /* Atomically release *pmu (which must be held on entry)
    and block the calling thread on *pcv.  Then wait until awakened by a
    call to nsync_cv_signal() or nsync_cv_broadcast() (or a spurious wakeup), or by the time
@@ -187,8 +197,9 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 	w->cond.f = NULL; /* Not using a conditional critical section. */
 	w->cond.v = NULL;
 	w->cond.eq = NULL;
-	if (lock == (void (*) (void *)) & nsync_mu_lock ||
-	    lock == (void (*) (void *)) & nsync_mu_rlock) {
+	if (lock == &void_mu_lock ||
+	    lock == (void (*) (void *)) &nsync_mu_lock ||
+	    lock == (void (*) (void *)) &nsync_mu_rlock) {
 		cv_mu = (nsync_mu *) pmu;
 	}
 	w->cv_mu = cv_mu;       /* If *pmu is an nsync_mu, record its address, else record NULL. */
@@ -424,8 +435,8 @@ void nsync_cv_broadcast (nsync_cv *pcv) {
 int nsync_cv_wait_with_deadline (nsync_cv *pcv, nsync_mu *pmu,
 				 nsync_time abs_deadline,
 				 nsync_note cancel_note) {
-	return (nsync_cv_wait_with_deadline_generic (pcv, pmu, (void (*) (void *)) &nsync_mu_lock,
-						     (void (*) (void *)) &nsync_mu_unlock,
+	return (nsync_cv_wait_with_deadline_generic (pcv, pmu, &void_mu_lock,
+						     &void_mu_unlock,
 						     abs_deadline, cancel_note));
 }
 

@@ -90,6 +90,16 @@ static void counting_loop (test_data *td, int id) {
 
 CLOSURE_DECL_BODY2 (counting, test_data *, int)
 
+/* Versions of nsync_mu_lock() and nsync_mu_unlock() that take "void *"
+   arguments, to avoid call through a function pointer of a different type,
+   which is undefined.  */
+static void void_mu_lock (void *mu) {
+	nsync_mu_lock ((nsync_mu *) mu);
+}
+static void void_mu_unlock (void *mu) {
+	nsync_mu_unlock((nsync_mu *) mu);
+}
+
 /* Create a few threads, each of which increments an
    integer a fixed number of times, using an nsync_mu for mutual exclusion.
    It checks that the integer is incremented the correct number of times. */
@@ -105,8 +115,8 @@ static void test_mu_nthread (testing t) {
 		td.n_threads = 5;
 		td.loop_count = loop_count;
 		td.mu_in_use = &td.mu;
-		td.lock = (void (*) (void *)) &nsync_mu_lock;
-		td.unlock = (void (*) (void *)) &nsync_mu_unlock;
+		td.lock = &void_mu_lock;
+		td.unlock = &void_mu_unlock;
 		for (i = 0; i != td.n_threads; i++) {
 			closure_fork (closure_counting (&counting_loop, &td, i));
 		}
@@ -238,8 +248,8 @@ static void test_try_mu_nthread (testing t) {
 		td.n_threads = 5;
 		td.loop_count = loop_count;
 		td.mu_in_use = &td.mu;
-		td.lock = (void (*) (void *)) &nsync_mu_lock;
-		td.unlock = (void (*) (void *)) &nsync_mu_unlock;
+		td.lock = &void_mu_lock;
+		td.unlock = &void_mu_unlock;
 		for (i = 0; i != td.n_threads; i++) {
 			closure_fork (closure_counting (&counting_loop_try_mu, &td, i));
 		}
