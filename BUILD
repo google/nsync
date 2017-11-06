@@ -27,6 +27,11 @@ exports_files(["LICENSE"])
 # are needed on given platforms; hence all the config_setting() rules below.
 
 config_setting(
+    name = "gcc_linux_x86_32_1",
+    values = {"cpu": "piii"},
+)
+
+config_setting(
     name = "gcc_linux_x86_64_1",
     values = {"cpu": "k8"},
 )
@@ -106,6 +111,7 @@ NSYNC_OPTS_GENERIC = select({
     # Select the CPU architecture include directory.
     # This select() has no real effect in the C++11 build, but satisfies a
     # #include that would otherwise need a #if.
+    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/x86_32"],
     ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
@@ -135,6 +141,7 @@ NSYNC_OPTS_GENERIC = select({
 # Options for C build, rather then C++11 build.
 NSYNC_OPTS = select({
     # Select the OS include directory.
+    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
@@ -151,6 +158,7 @@ NSYNC_OPTS = select({
     "//conditions:default": [],
 }) + select({
     # Select the compiler include directory.
+    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
@@ -333,7 +341,7 @@ NSYNC_SRC_WINDOWS = [
 
 # OS-specific library source.
 NSYNC_SRC_PLATFORM = select({
-    # Linux is the only OS nsync supports in bazel currently.
+    ":gcc_linux_x86_32_1": NSYNC_SRC_LINUX,
     ":gcc_linux_x86_64_1": NSYNC_SRC_LINUX,
     ":gcc_linux_x86_64_2": NSYNC_SRC_LINUX,
     ":gcc_linux_aarch64": NSYNC_SRC_LINUX,
@@ -459,7 +467,7 @@ NSYNC_TEST_SRC_WINDOWS = [
 
 # OS-specific test library source.
 NSYNC_TEST_SRC_PLATFORM = select({
-    # Linux is the only OS nsync supports in bazel currently.
+    ":gcc_linux_x86_32_1": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_x86_64_1": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_x86_64_2": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_aarch64": NSYNC_TEST_SRC_LINUX,
