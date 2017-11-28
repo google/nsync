@@ -118,6 +118,7 @@ NSYNC_OPTS_GENERIC = select({
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
     ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/s390x"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":freebsd": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
@@ -131,6 +132,9 @@ NSYNC_OPTS_GENERIC = select({
     "-I" + pkg_path_name() + "/platform/posix",
 ] + select({
     ":msvc_windows_x86_64": [
+    ],
+    ":freebsd": [
+        "-pthread"
     ],
     "//conditions:default": [
         "-D_POSIX_C_SOURCE=200809L",
@@ -149,6 +153,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/linux"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
+    ":freebsd": ["-I" + pkg_path_name() + "/platform/freebsd"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/linux"],
@@ -166,6 +171,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":freebsd": ["-I" + pkg_path_name() + "/platform/clang"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_armeabi": ["-I" + pkg_path_name() + "/platform/gcc"],
