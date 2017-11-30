@@ -118,6 +118,7 @@ NSYNC_OPTS_GENERIC = select({
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
     ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/s390x"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    ":freebsd": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
@@ -132,6 +133,7 @@ NSYNC_OPTS_GENERIC = select({
 ] + select({
     ":msvc_windows_x86_64": [
     ],
+    ":freebsd": ["-pthread"],
     "//conditions:default": [
         "-D_POSIX_C_SOURCE=200809L",
         "-pthread",
@@ -148,6 +150,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
     ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/linux"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
+    ":freebsd": ["-I" + pkg_path_name() + "/platform/freebsd"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/linux"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/linux"],
@@ -165,6 +168,7 @@ NSYNC_OPTS = select({
     ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":freebsd": ["-I" + pkg_path_name() + "/platform/clang"],
     ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
     ":android_x86_32": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":android_x86_64": ["-I" + pkg_path_name() + "/platform/gcc"],
@@ -339,6 +343,15 @@ NSYNC_SRC_WINDOWS = [
     "platform/win32/src/pthread_key_win32.cc",
 ]
 
+# FreeBSD-specific library source.
+NSYNC_SRC_FREEBSD = [
+    "platform/posix/src/nsync_semaphore_sem_t.c",
+    "platform/posix/src/per_thread_waiter.c",
+    "platform/posix/src/yield.c",
+    "platform/posix/src/time_rep.c",
+    "platform/posix/src/nsync_panic.c",
+]
+
 # OS-specific library source.
 NSYNC_SRC_PLATFORM = select({
     ":gcc_linux_x86_32_1": NSYNC_SRC_LINUX,
@@ -348,6 +361,7 @@ NSYNC_SRC_PLATFORM = select({
     ":gcc_linux_ppc64": NSYNC_SRC_LINUX,
     ":gcc_linux_s390x": NSYNC_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_SRC_MACOS,
+    ":freebsd": NSYNC_SRC_FREEBSD,
     ":ios_x86_64": NSYNC_SRC_MACOS,
     ":android_x86_32": NSYNC_SRC_ANDROID,
     ":android_x86_64": NSYNC_SRC_ANDROID,
@@ -465,6 +479,11 @@ NSYNC_TEST_SRC_WINDOWS = [
     "platform/win32/src/start_thread.c",
 ]
 
+# FreeBSD-specific test library source.
+NSYNC_TEST_SRC_FREEBSD = [
+    "platform/posix/src/start_thread.c",
+]
+
 # OS-specific test library source.
 NSYNC_TEST_SRC_PLATFORM = select({
     ":gcc_linux_x86_32_1": NSYNC_TEST_SRC_LINUX,
@@ -474,6 +493,7 @@ NSYNC_TEST_SRC_PLATFORM = select({
     ":gcc_linux_ppc64": NSYNC_TEST_SRC_LINUX,
     ":gcc_linux_s390x": NSYNC_TEST_SRC_LINUX,
     ":clang_macos_x86_64": NSYNC_TEST_SRC_MACOS,
+    ":freebsd": NSYNC_TEST_SRC_FREEBSD,
     ":ios_x86_64": NSYNC_TEST_SRC_MACOS,
     ":android_x86_32": NSYNC_TEST_SRC_ANDROID,
     ":android_x86_64": NSYNC_TEST_SRC_ANDROID,

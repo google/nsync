@@ -14,6 +14,7 @@ CXXFLAGS=${CPPFLAGS} ${OPT} ${PLATFORM_CXXFLAGS}
 LDFLAGS=${OPT} ${PLATFORM_LDFLAGS}
 PAR_SUB_COUNT=1  # subtests to run in parallel with partest
 PAR_COUNT=2      # tests to run in parallel with partest
+LD=${CC}
 
 TESTS=counter_test cv_mu_timeout_stress_test cv_test cv_wait_example_test dll_test mu_starvation_test mu_test mu_wait_example_test mu_wait_test note_test once_test pingpong_test wait_test
 
@@ -99,16 +100,16 @@ smprintf.o: ${TESTING}/smprintf.c; ${CC} ${CFLAGS} -c ${TESTING}/smprintf.c
 testing.o: ${TESTING}/testing.c; ${CC} ${CFLAGS} -c ${TESTING}/testing.c
 wait_test.o: ${TESTING}/wait_test.c; ${CC} ${CFLAGS} -c ${TESTING}/wait_test.c
 
-counter_test: counter_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-cv_mu_timeout_stress_test: cv_mu_timeout_stress_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-cv_test: cv_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-cv_wait_example_test: cv_wait_example_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-dll_test: dll_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-mu_starvation_test: mu_starvation_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-mu_test: mu_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-mu_wait_example_test: mu_wait_example_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-mu_wait_test: mu_wait_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-note_test: note_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-once_test: once_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-pingpong_test: pingpong_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
-wait_test: wait_test.o ${TEST_LIB} ${LIB}; ${CC} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+counter_test: counter_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+cv_mu_timeout_stress_test: cv_mu_timeout_stress_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+cv_test: cv_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+cv_wait_example_test: cv_wait_example_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+dll_test: dll_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_starvation_test: mu_starvation_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_test: mu_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_wait_example_test: mu_wait_example_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+mu_wait_test: mu_wait_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+note_test: note_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+once_test: once_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+pingpong_test: pingpong_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}
+wait_test: wait_test.o ${TEST_LIB} ${LIB}; ${LD} ${LDFLAGS} -o $@ $@.o ${TEST_LIB} ${LIB} ${PLATFORM_LIBS}

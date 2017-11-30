@@ -214,7 +214,7 @@ int main (int argc, char *argv[]) {
            it through the preprocessor. */
         for (argn = 1; argn != argc; argn++) {
                 if (has_prog_suffix (argv[argn])) {
-                        if (has_suffix (argv[argn], ".cc", ".cc", NULL)) {
+                        if (has_suffix (argv[argn], ".cc", ".CC", NULL)) {
                                 process_file (ofp, cpp_cmd_prefix, argv[argn]);
                         } else {
                                 process_file (ofp, cmd_prefix, argv[argn]);
