@@ -101,7 +101,7 @@ static void *cv_queue_get (cv_queue *q, nsync_time abs_deadline) {
 
 /* --------------------------- */
 
-#define INT_TO_PTR(x) ((x) + 1 + (char *)0)
+#define INT_TO_PTR(x) ((char *)(((x) + 1) + (char *)0))
 #define PTR_TO_INT(p) (((char *) (p)) - 1 - (char *)0)
 
 /* Put count integers on *q, in the sequence start*3, (start+1)*3, (start+2)*3, .... */

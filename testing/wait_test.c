@@ -79,9 +79,9 @@ static void test_wait_n (testing t) {
 			closure_fork (closure_notify (&notify_at, n, deadline, done));
 			for (k = 0; k != 4 && A_LEN (&aw) < j+nnote; k++) {
 				nsync_note cn = nsync_note_new (n, nsync_time_no_deadline);
-				struct nsync_waitable_s *w = &A_PUSH (&aw);
-				w->v = cn;
-				w->funcs = &nsync_note_waitable_funcs;
+				struct nsync_waitable_s *lw = &A_PUSH (&aw);
+				lw->v = cn;
+				lw->funcs = &nsync_note_waitable_funcs;
 			}
 		}
 		for (j = A_LEN (&aw); A_LEN (&aw) < j+nnote_expire;) {
@@ -93,9 +93,9 @@ static void test_wait_n (testing t) {
 			closure_fork (closure_notify (&notify_at, n, deadline, done));
 			for (k = 0; k != 4 && A_LEN (&aw) < j+nnote; k++) {
 				nsync_note cn = nsync_note_new (n, nsync_time_no_deadline);
-				struct nsync_waitable_s *w = &A_PUSH (&aw);
-				w->v = cn;
-				w->funcs = &nsync_note_waitable_funcs;
+				struct nsync_waitable_s *lw = &A_PUSH (&aw);
+				lw->v = cn;
+				lw->funcs = &nsync_note_waitable_funcs;
 			}
 		}
 		if (ncounter + nnote + nnote_expire != A_LEN (&aw)) {

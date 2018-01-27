@@ -41,6 +41,29 @@ typedef gpr_timespec nsync_time;
 #define NSYNC_TIME_NSEC(t) ((t).tv_nsec)
 NSYNC_CPP_END_
 
+#elif defined(NSYNC_USE_INT_TIME)
+#include <time.h>
+NSYNC_CPP_START_
+typedef NSYNC_USE_INT_TIME nsync_time;
+#define NSYNC_TIME_SEC(t)  (sizeof (nsync_time) >= 8? \
+			    (t) / (1000 * 1000 * 1000): \
+			    ((t) / 1000))
+#define NSYNC_TIME_NSEC(t) (sizeof (nsync_time) >= 8? \
+                            (t) % (1000 * 1000 * 1000): \
+			    (((t) % 1000) * 1000 * 1000))
+#define NSYNC_TIME_MAX_ MAX_INT_TYPE (nsync_time)
+NSYNC_CPP_END_
+
+#elif defined(NSYNC_USE_FLOATING_TIME)
+#include <math.h>
+#include <time.h>
+NSYNC_CPP_START_
+typedef NSYNC_USE_FLOATING_TIME nsync_time;
+#define NSYNC_TIME_SEC(t)  (trunc ((t) / (nsync_time) (1000 * 1000 * 1000)))
+#define NSYNC_TIME_NSEC(t) ((t) - ((1000 * 1000 * 1000) * NSYNC_TIME_SEC (t)))
+#define NSYNC_TIME_MAX_ DBL_MAX
+NSYNC_CPP_END_
+
 #elif NSYNC_USE_DEBUG_TIME
 /* Check that the library can be built with a different time struct.  */
 #include <time.h>

@@ -46,7 +46,7 @@ usage="usage: mkmakefile.sh [-diff|-out] [-dir <build_dir>]
 "
 
 # Compilers this script knows about.
-compilers="gcc clang g++ clang++ tcc lcc decc"
+compilers="gcc clang g++ clang++ tcc lcc decc pcc tendracc"
 
 os=
 arch=
@@ -221,7 +221,7 @@ ldflags=
 use_pthread=false
 case "$cc_type.$os" in
 *.irix64)			;;
-gcc.*|clang.*|tcc.*|decc.*)	use_pthread=true;;
+gcc.*|clang.*|tcc.*|decc.*|pcc.*)	use_pthread=true;;
 esac
 case "$use_pthread" in
 true)	cppflags="$cppflags -pthread"
@@ -248,8 +248,15 @@ case "$os" in
 macos)	clock_gettime_src="../../platform/posix/src/clock_gettime.c ";;
 esac
 
+case "$cc_type" in
+pcc)	# Compilers like pcc can't pass/return structs properly.  Use an integer for the time.
+	time_rep_src="../../platform/num_time/src/time_rep.c"
+	cppflags="-DNSYNC_USE_INT_TIME=int64_t -I../../platform/num_time $cppflags";;
+*)	time_rep_src="../../platform/posix/src/time_rep.c";;
+esac
+
 # Platform-specific files.
-platform_c="$atomic_c$clock_gettime_src$semfile../../platform/posix/src/per_thread_waiter.c ../../platform/posix/src/yield.c ../../platform/posix/src/time_rep.c ../../platform/posix/src/nsync_panic.c"
+platform_c="$atomic_c$clock_gettime_src$semfile../../platform/posix/src/per_thread_waiter.c ../../platform/posix/src/yield.c $time_rep_src ../../platform/posix/src/nsync_panic.c"
 platform_s="$atomic_s"
 sp=
 platform_o=
@@ -360,6 +367,16 @@ makefile=`
 			?*) echo "PLATFORM_LIBS=$libs -lrt";;
 			*)  echo "PLATFORM_LIBS=-lrt";;
 			esac
+			echo 'MKDEP=${CC} -M'
+			echo "PLATFORM_C=$platform_c"
+			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac
+			echo "PLATFORM_OBJS=$platform_o"
+			echo "TEST_PLATFORM_C=$test_platform_c"
+			echo "TEST_PLATFORM_OBJS=$test_platform_o"
+			;;
+	pcc.)		echo "PLATFORM_CPPFLAGS=$atomic_ind$cppflags"
+			case "$ldflags" in ?*) echo "PLATFORM_LDFLAGS=$ldflags";; esac
+			case "$libs" in ?*) echo "PLATFORM_LIBS=$libs";; esac
 			echo 'MKDEP=${CC} -M'
 			echo "PLATFORM_C=$platform_c"
 			case "$platform_s" in ?*) echo "PLATFORM_S=$platform_s";; esac

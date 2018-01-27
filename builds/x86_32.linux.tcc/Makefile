@@ -1,6 +1,7 @@
 CC=tcc
 PLATFORM_CPPFLAGS=-I../../platform/atomic_ind -D_POSIX_C_SOURCE=200809L -I../../platform/tcc -I../../platform/linux -I../../platform/x86_32 -I../../platform/posix -pthread
 PLATFORM_CFLAGS=-Werror -Wall
+PLATFORM_LIBS=-lrt
 PLATFORM_LDFLAGS=-pthread
 MKDEP_DEPEND=mkdep
 MKDEP=./mkdep ${CC} -E

@@ -43,15 +43,15 @@ static nsync_mu ott_s_mu = NSYNC_MU_INIT;
 /* Increment s->counter by a power of two chosen by the thread id.  Called
    via one of the nsync_run_once* calls.  */
 static void once_arg_func (void *v) {
-        struct once_test_thread_s *ott = (struct once_test_thread_s *) v;
+        struct once_test_thread_s *lott = (struct once_test_thread_s *) v;
         struct once_test_s *s;
 	nsync_mu_lock (&ott_s_mu);
-        s = ott->s;
+        s = lott->s;
 	nsync_mu_unlock (&ott_s_mu);
         if (s->counter != 0) {
                 TEST_ERROR (s->t, ("once_arg_func found counter!=0"));
         }
-        s->counter += 1 << (2 * ott->id);
+        s->counter += 1 << (2 * lott->id);
 }
 
 /* Call once_arg_func() on the first thread structure. */
@@ -67,17 +67,17 @@ static void once_func1 (void) {
 /* Pause for a short time, then use one of the nsync_run_once* calls on
    ott->s->once, chosen using the thread id.  This is the body of each test
    thread.  */
-static void once_thread (struct once_test_thread_s *ott) {
+static void once_thread (struct once_test_thread_s *lott) {
         struct once_test_s *s;
 	nsync_mu_lock (&ott_s_mu);
-        s = ott->s;
+        s = lott->s;
 	nsync_mu_unlock (&ott_s_mu);
         nsync_time_sleep (nsync_time_s_ns (0, 1 * 1000 * 1000));
-        switch (ott->id & 3) {
+        switch (lott->id & 3) {
         case 0:  nsync_run_once (&s->once, &once_func0); break;
         case 1:  nsync_run_once_spin (&s->once, &once_func1); break;
-        case 2:  nsync_run_once_arg (&s->once, &once_arg_func, ott); break;
-        case 3:  nsync_run_once_arg_spin (&s->once, &once_arg_func, ott); break;
+        case 2:  nsync_run_once_arg (&s->once, &once_arg_func, lott); break;
+        case 3:  nsync_run_once_arg_spin (&s->once, &once_arg_func, lott); break;
         }
         nsync_counter_add (s->done, -1);
 }

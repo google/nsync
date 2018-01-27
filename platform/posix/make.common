@@ -62,10 +62,11 @@ depend: ${MKDEP_DEPEND}
 		${PLATFORM_S} ${PLATFORM_CXX} ${TEST_PLATFORM_C} > dependfile
 
 ${PLATFORM_OBJS}: ${PLATFORM_C} ${PLATFORM_S} ${PLATFORM_CXX}
-	for x in ${PLATFORM_C} $$empty; do ${CC} ${CFLAGS} -c $$x; done; \
-	for x in ${PLATFORM_S} $$empty; do o=`basename $$x .s`; ${AS} ${ASFLAGS} $$x -o `basename $$o .S`.o; done; \
-	for x in ${PLATFORM_CXX} $$empty; do ${CXX} ${CXXFLAGS} -c $$x; done
-${TEST_PLATFORM_OBJS}: ${TEST_PLATFORM_C}; for x in ${TEST_PLATFORM_C}; do ${CC} ${CFLAGS} -c $$x; done
+	set -x; \
+	for x in ${PLATFORM_C} $$empty; do ${CC} ${CFLAGS} -c $$x || exit 1; done; \
+	for x in ${PLATFORM_S} $$empty; do o=`basename $$x .s`; ${AS} ${ASFLAGS} $$x -o `basename $$o .S`.o || exit 1; done; \
+	for x in ${PLATFORM_CXX} $$empty; do ${CXX} ${CXXFLAGS} -c $$x || exit 1; done
+${TEST_PLATFORM_OBJS}: ${TEST_PLATFORM_C}; set -x; for x in ${TEST_PLATFORM_C}; do ${CC} ${CFLAGS} -c $$x || exit 1; done
 
 common.o: ${INTERNAL}/common.c; ${CC} ${CFLAGS} -c ${INTERNAL}/common.c
 counter.o: ${INTERNAL}/counter.c; ${CC} ${CFLAGS} -c ${INTERNAL}/counter.c

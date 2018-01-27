@@ -152,15 +152,12 @@ testing_base testing_new (int argc, char *argv[], int flags) {
 			tb->prog = last + 1;
 		}
 	}
-	for (argn = 1; argn != argc && strcmp (argv[argn], "--") != 0; argn++) {
+	for (argn = 1; argn != argc && argv[argn][0] == '-' &&
+		       strcmp (argv[argn], "--") != 0; argn++) {
 		const char *arg = argv[argn];
-		if (arg[0] == '-') {
-			const char *f;
-			for (f = &arg[1]; *f != 0; f++) {
-				process_flag (tb, &argn, argc, argv, *f, arg);
-			}
-		} else {
-			break;
+		const char *f;
+		for (f = &arg[1]; *f != 0; f++) {
+			process_flag (tb, &argn, argc, argv, *f, arg);
 		}
 	}
 	tb->argn = argn + (argn != argc && strcmp (argv[argn], "--") == 0);
