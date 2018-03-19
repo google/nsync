@@ -200,6 +200,16 @@ NSYNC_OPTS_CPP = select({
     # to include some standard C++11 headers, like <mutex>.
     ":clang_macos_x86_64": ["-D_DARWIN_C_SOURCE"],
     "//conditions:default": [],
+}) + select({
+    # On Linux, the C++11 library's synchronization primitives are
+    # surprisingly slow.   See also NSYNC_SRC_PLATFORM_CPP, below.
+    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    "//conditions:default": [],
 }) + [
     "-DNSYNC_ATOMIC_CPP11",
     "-DNSYNC_USE_CPP11_TIMEPOINT",
@@ -259,6 +269,7 @@ NSYNC_INTERNAL_HEADERS_PLATFORM = [
     "platform/atomic_ind/atomic.h",
     "platform/c++11/atomic.h",
     "platform/c++11/platform.h",
+    "platform/c++11.futex/platform.h",
     "platform/c11/atomic.h",
     "platform/clang/atomic.h",
     "platform/clang/compiler.h",
@@ -373,11 +384,21 @@ NSYNC_SRC_PLATFORM = select({
 
 # C++11-specific (OS and architecture independent) library source.
 NSYNC_SRC_PLATFORM_CPP = [
-    "platform/c++11/src/nsync_semaphore_mutex.cc",
     "platform/c++11/src/time_rep_timespec.cc",
     "platform/c++11/src/nsync_panic.cc",
     "platform/c++11/src/yield.cc",
 ] + select({
+    # On Linux, the C++11 library's synchronization primitives are surprisingly
+    # slow, at least at the time or writing (early 2018).  Raw kernel
+    # primitives are ten times faster for wakeups.
+    ":gcc_linux_x86_32_1": ["platform/linux/src/nsync_semaphore_futex.c"],
+    ":gcc_linux_x86_64_1": ["platform/linux/src/nsync_semaphore_futex.c"],
+    ":gcc_linux_x86_64_2": ["platform/linux/src/nsync_semaphore_futex.c"],
+    ":gcc_linux_aarch64": ["platform/linux/src/nsync_semaphore_futex.c"],
+    ":gcc_linux_ppc64": ["platform/linux/src/nsync_semaphore_futex.c"],
+    ":gcc_linux_s390x": ["platform/linux/src/nsync_semaphore_futex.c"],
+    "//conditions:default": ["platform/c++11/src/nsync_semaphore_mutex.cc"],
+}) + select({
     # MacOS and Android don't have working C++11 thread local storage.
     ":clang_macos_x86_64": ["platform/posix/src/per_thread_waiter.c"],
     ":android_x86_32": ["platform/posix/src/per_thread_waiter.c"],
