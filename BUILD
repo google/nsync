@@ -126,6 +126,7 @@ NSYNC_OPTS_GENERIC = select({
     ":android_arm": ["-I" + pkg_path_name() + "/platform/arm"],
     ":android_arm64": ["-I" + pkg_path_name() + "/platform/aarch64"],
     ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+    "//conditions:default": [],
 }) + [
     "-I" + pkg_path_name() + "/public",
     "-I" + pkg_path_name() + "/internal",
