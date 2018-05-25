@@ -107,6 +107,16 @@ if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
 		set (NSYNC_TEST_OS_SRC
 			"platform/posix/src/start_thread.c"
 		)
+	else ()
+		include_directories ("${PROJECT_SOURCE_DIR}/platform/posix")
+		add_compile_options ("-std=c++11")
+		set (NSYNC_OS_SRC
+			"platform/c++11/src/nsync_semaphore_mutex.cc"
+			${NSYNC_OS_CPP_SRC}
+		)
+		set (NSYNC_TEST_OS_SRC
+			"platform/posix/src/start_thread.c"
+		)
 	endif ()
 endif ()
 
@@ -166,6 +176,12 @@ if (NOT "${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
 		)
 	elseif ("${CMAKE_SYSTEM_NAME}X" STREQUAL "OpenBSDX")
 		include_directories ("${PROJECT_SOURCE_DIR}/platform/openbsd")
+		set (NSYNC_POSIX ON)
+		set (NSYNC_OS_EXTRA_SRC
+			"platform/posix/src/nsync_semaphore_mutex.c"
+		)
+	else ()
+		include_directories ("${PROJECT_SOURCE_DIR}/platform/posix")
 		set (NSYNC_POSIX ON)
 		set (NSYNC_OS_EXTRA_SRC
 			"platform/posix/src/nsync_semaphore_mutex.c"
