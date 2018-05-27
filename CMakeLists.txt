@@ -10,6 +10,9 @@ project (nsync)
 # Some builds need position-independent code.
 set (CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Allow nsync users to turn on or off the tests
+option(NSYNC_ENABLE_TESTS "Enable for building tests" ON)
+
 # -----------------------------------------------------------------
 # Platform dependencies
 
@@ -250,62 +253,64 @@ set (NSYNC_SRC
 )
 add_library (nsync ${NSYNC_SRC})
 
-set (NSYNC_TEST_SRC
-	"testing/array.c"
-	"testing/atm_log.c"
-	"testing/closure.c"
-	"testing/smprintf.c"
-	"testing/testing.c"
-	"testing/time_extra.c"
-	${NSYNC_TEST_OS_SRC}
-)
-add_library (nsync_test ${NSYNC_TEST_SRC})
+if (NSYNC_ENABLE_TESTS)
+	set (NSYNC_TEST_SRC
+		"testing/array.c"
+		"testing/atm_log.c"
+		"testing/closure.c"
+		"testing/smprintf.c"
+		"testing/testing.c"
+		"testing/time_extra.c"
+		${NSYNC_TEST_OS_SRC}
+	)
+	add_library (nsync_test ${NSYNC_TEST_SRC})
 
-set (NSYNC_TESTS
-	"counter_test"
-	"cv_mu_timeout_stress_test"
-	"cv_test"
-	"cv_wait_example_test"
-	"dll_test"
-	"mu_starvation_test"
-	"mu_test"
-	"mu_wait_example_test"
-	"mu_wait_test"
-	"note_test"
-	"once_test"
-	"pingpong_test"
-	"wait_test"
-)
+	set (NSYNC_TESTS
+		"counter_test"
+		"cv_mu_timeout_stress_test"
+		"cv_test"
+		"cv_wait_example_test"
+		"dll_test"
+		"mu_starvation_test"
+		"mu_test"
+		"mu_wait_example_test"
+		"mu_wait_test"
+		"note_test"
+		"once_test"
+		"pingpong_test"
+		"wait_test"
+	)
 
-if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
-	foreach (s IN ITEMS ${NSYNC_SRC} ${NSYNC_TEST_SRC})
-		SET_SOURCE_FILES_PROPERTIES ("${s}" PROPERTIES LANGUAGE CXX)
-	endforeach (s)
+	if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
+		foreach (s IN ITEMS ${NSYNC_SRC} ${NSYNC_TEST_SRC})
+			SET_SOURCE_FILES_PROPERTIES ("${s}" PROPERTIES LANGUAGE CXX)
+		endforeach (s)
+		foreach (t IN ITEMS ${NSYNC_TESTS})
+			SET_SOURCE_FILES_PROPERTIES ("testing/${t}.c" PROPERTIES LANGUAGE CXX)
+		endforeach (t)
+	endif ()
+
+	enable_testing ()
 	foreach (t IN ITEMS ${NSYNC_TESTS})
-		SET_SOURCE_FILES_PROPERTIES ("testing/${t}.c" PROPERTIES LANGUAGE CXX)
+		add_executable (${t} "testing/${t}.c")
+	endforeach (t)
+
+	find_package (Threads REQUIRED)
+	set (THREADS_PREFER_PTHREAD_FLAG ON)
+	foreach (t IN ITEMS "nsync" "nsync_test" ${NSYNC_TESTS})
+		if (THREADS_HAVE_PTHREAD_ARG)
+			target_compile_options (${t} PUBLIC "-pthread")
+		endif ()
+		if (CMAKE_THREAD_LIBS_INIT)
+			target_link_libraries (${t} "${CMAKE_THREAD_LIBS_INIT}")
+		endif ()
+	endforeach (t)
+
+	foreach (t IN ITEMS ${NSYNC_TESTS})
+		target_link_libraries (${t} nsync_test nsync)
+		add_test (NAME ${t} COMMAND ${t})
 	endforeach (t)
 endif ()
-
-enable_testing ()
-foreach (t IN ITEMS ${NSYNC_TESTS})
-	add_executable (${t} "testing/${t}.c")
-endforeach (t)
-
-find_package (Threads REQUIRED)
-set (THREADS_PREFER_PTHREAD_FLAG ON)
-foreach (t IN ITEMS "nsync" "nsync_test" ${NSYNC_TESTS})
-	if (THREADS_HAVE_PTHREAD_ARG)
-		target_compile_options (${t} PUBLIC "-pthread")
-	endif ()
-	if (CMAKE_THREAD_LIBS_INIT)
-		target_link_libraries (${t} "${CMAKE_THREAD_LIBS_INIT}")
-	endif ()
-endforeach (t)
-
-foreach (t IN ITEMS ${NSYNC_TESTS})
-	target_link_libraries (${t} nsync_test nsync)
-	add_test (NAME ${t} COMMAND ${t})
-endforeach (t)
 
 install (TARGETS nsync
 	LIBRARY DESTINATION lib COMPONENT RuntimeLibraries
