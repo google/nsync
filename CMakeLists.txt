@@ -10,7 +10,7 @@ project (nsync)
 # Some builds need position-independent code.
 set (CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Allow nsync users to turn on or off the tests
+# Allow nsync users to turn the tests on or off.
 option(NSYNC_ENABLE_TESTS "Enable for building tests" ON)
 
 # -----------------------------------------------------------------

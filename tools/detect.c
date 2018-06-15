@@ -80,7 +80,7 @@ detected_arch=alphaX
 detected_arch=mipsX
 #elif defined(__ppc64__) || defined(__powerpc64__) || defined(__ppc__) || defined(__powerpc__)
 detected_arch=ppcX
-#elif defined(__riscv__)
+#elif defined(__riscv__) || defined(__riscv)
 detected_arch=riscvX
 #elif defined(__pnacl__)
 detected_arch=pnaclX
@@ -92,12 +92,12 @@ detected_arch=sparcX
 detected_arch=parisc64X
 #elif defined(__hppa__)
 detected_arch=pariscX
-#elif defined(__s390__)
-detected_arch=s390X
 #elif defined(__s390x__)
 detected_arch=s390xX
-#elif defined(__mc68000__)
-detected_arch=mc68000X
+#elif defined(__s390__)
+detected_arch=s390X
+#elif defined(__mc68000__) || defined(__m68k__)
+detected_arch=m68kX
 #elif defined(__aarch64__) || defined(__arm64__)
 detected_arch=aarch64X
 #elif defined(__arm32__) || defined(__arm__)

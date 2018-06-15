@@ -7,7 +7,7 @@ nsync is a C library that exports various synchronization primitives:
 
 It is not an offical Google product.
 
-nsync may be desirable in place for pthread primitives in some cases:
+nsync may be desirable in place of pthread primitives in some cases:
 - nsync locks are reader-writer locks (but are as efficient as mutexes).
 - nsync locks and condition variables occupy only two words each.
 - nsync works on Unix-like systems and Windows.  It should be portable to
@@ -67,7 +67,7 @@ atomic operations on the platform.  Atomic operations may be provided by
   Selected in mkmakefile.sh via "-atomic c11" or  "-atomic c++11".
 - operating system-dependent libraries (e.g., NetBSD, MacOS, Windows)
   Selected in mkmakefile.sh via "-atomic os".
-- architecture-dependent libraries (currently: x86_64, x86_32, aarch64,
+- architecture-dependent libraries (e.g., x86_64, x86_32, aarch64,
   arm, mips, alpha)
   Selected in mkmakefile.sh via "-atomic asm"; file should be
   named platforms/<architecture>/src/nsync_atm_<architecture>.[csS]
@@ -119,7 +119,7 @@ The platform-dependent Makefiles set the appropriate include
 paths and specify platform-dependent modules where needed.
 
 The build directories of the various platforms are kept separate to allow
-multiple platforms to be accommodated in one shared file system,
+multiple platforms to be accommodated in one shared file system.
 
 Differences from pthread locks and condition variables
 ======================================================
@@ -191,7 +191,7 @@ explicit signalling.
 
 C++ users may be tempted to wrap this functionality in a way that uses
 lambda expressions for the conditions.  This will work, but may be less
-efficient, because C++ does not provide a means to detect whether two lambas
+efficient, because C++ does not provide a means to detect whether two lambda
 expressions evaluate the same function.  This may force the implementation to
 evaluate the same false condition many more times than it otherwise might.
 
@@ -201,7 +201,7 @@ There is no particular reason why a reader/writer lock need be
 significantly slower than a simple mutex.  In both cases, the lock can be
 acquired or released with a single atomic read-modify-write sequence.
 Thus, the type nsync_mu is a reader/writer lock.  Locks with reader-sections
-can be used with condition variables, and conditional critical sections
+can be used with condition variables and conditional critical sections
 without affecting correctness.
 
 Cancellation
@@ -209,7 +209,7 @@ Cancellation
 The pthread API allows the cancellation of individual threads, 
 and once a thread has been cancelled, it is expected to terminate soon.  This
 can work well in some cases, but may not be convenient if an activity is
-associated with many threads, or if threads routinely act on behalf or multiple
+associated with many threads, or if threads routinely act on behalf of multiple
 activities.
 
 In nsync, cancellation involves an object separate from the thread, called an
@@ -225,7 +225,7 @@ deadlines.   A cancellation request from the original caller
 might cancel the parent, which would cancel all the children.
 
 The calls nsync_cv_wait_with_deadline() and nsync_mu_wait_with_deadline() take
-both a deadline an a pointer to an nsync_note, and will wake when the awaited
+both a deadline and a pointer to an nsync_note, and will wake when the awaited
 condition becomes true, when the deadline (if any) expires, or when the
 nsync_note becomes notified.  The return value indicates which of these
 occurred.
