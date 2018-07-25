@@ -2,7 +2,17 @@ cmake_minimum_required (VERSION 2.8.12)
 
 # nsync provides portable synchronization primitives, such as mutexes and
 # condition variables.
-project (nsync)
+if ("${CMAKE_MAJOR_VERSION}X" STREQUAL "2X")
+	project (nsync)
+else ()
+	# fetch from VERSION file in root
+	file (STRINGS VERSION VERSION_STRING)
+
+	cmake_policy(SET CMP0048 NEW) # remove when min ver >=3
+
+	project (nsync
+		VERSION "${VERSION_STRING}")
+endif ()
 
 # Set variable NSYNC_LANGUAGE to "c++11" to build with C++11
 # rather than C.
@@ -236,6 +246,8 @@ endif ()
 include_directories ("${PROJECT_SOURCE_DIR}/public")
 include_directories ("${PROJECT_SOURCE_DIR}/internal")
 
+include(GNUInstallDirs)
+
 set (NSYNC_SRC
 	"internal/common.c"
 	"internal/counter.c"
@@ -253,6 +265,14 @@ set (NSYNC_SRC
 )
 add_library (nsync ${NSYNC_SRC})
 
+set_target_properties(nsync PROPERTIES
+	VERSION ${PROJECT_VERSION}
+	SOVERSION ${PROJECT_VERSION_MAJOR})
+
+if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
+	SET_SOURCE_FILES_PROPERTIES (${NSYNC_SRC} PROPERTIES LANGUAGE CXX)
+endif ()
+
 if (NSYNC_ENABLE_TESTS)
 	set (NSYNC_TEST_SRC
 		"testing/array.c"
@@ -264,6 +284,9 @@ if (NSYNC_ENABLE_TESTS)
 		${NSYNC_TEST_OS_SRC}
 	)
 	add_library (nsync_test ${NSYNC_TEST_SRC})
+	set_target_properties(nsync_test PROPERTIES
+		VERSION ${PROJECT_VERSION}
+		SOVERSION ${PROJECT_VERSION_MAJOR})
 
 	set (NSYNC_TESTS
 		"counter_test"
@@ -282,9 +305,7 @@ if (NSYNC_ENABLE_TESTS)
 	)
 
 	if ("${NSYNC_LANGUAGE}X" STREQUAL "c++11X")
-		foreach (s IN ITEMS ${NSYNC_SRC} ${NSYNC_TEST_SRC})
-			SET_SOURCE_FILES_PROPERTIES ("${s}" PROPERTIES LANGUAGE CXX)
-		endforeach (s)
+		SET_SOURCE_FILES_PROPERTIES (${NSYNC_TEST_SRC} PROPERTIES LANGUAGE CXX)
 		foreach (t IN ITEMS ${NSYNC_TESTS})
 			SET_SOURCE_FILES_PROPERTIES ("testing/${t}.c" PROPERTIES LANGUAGE CXX)
 		endforeach (t)
@@ -313,8 +334,8 @@ if (NSYNC_ENABLE_TESTS)
 endif ()
 
 install (TARGETS nsync
-	LIBRARY DESTINATION lib COMPONENT RuntimeLibraries
-	ARCHIVE DESTINATION lib COMPONENT Development)
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT RuntimeLibraries
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT Development)
 
 set (NSYNC_INCLUDES
 	"public/nsync.h"
@@ -333,5 +354,7 @@ set (NSYNC_INCLUDES
 )
 
 foreach (NSYNC_INCLUDE ${NSYNC_INCLUDES})
-	install (FILES ${NSYNC_INCLUDE} DESTINATION include COMPONENT Development)
+	install (FILES ${NSYNC_INCLUDE}
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+		COMPONENT Development)
 endforeach ()
