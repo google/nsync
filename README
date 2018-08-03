@@ -102,6 +102,23 @@ with
 	builds/x86_64.linux.gcc/Makefile
 to see how to compile the entire library in C++, rather than C.
 
+CMake
+-----
+
+CMake can also be used to build:
+
+    $ mkdir out
+    $ cd out/
+    $ cmake ..
+    $ make
+    $ make install
+
+The C library will be called libnsync and C++ is libnsync_cpp.
+
+Tests can be disabled with the CMake option: -DNSYNC_ENABLE_TESTS=0.
+To build shared libraries instead of static use: -DBUILD_SHARED_LIBS=ON.
+
+CMake version >= 3.0 is strongly recommended.
 
 Code structure
 ==============

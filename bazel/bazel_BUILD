@@ -17,7 +17,7 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
-exports_files(["LICENSE"])
+exports_files(["LICENSE", "VERSION"])
 
 # ---------------------------------------------
 # Parameters to the compilation:  compiler (e.g., for atomics), architecture
