@@ -43,7 +43,7 @@ config_setting(
 
 config_setting(
     name = "gcc_linux_aarch64",
-    values = {"cpu": "arm"},
+    values = {"cpu": "aarch64"},
 )
 
 config_setting(
