@@ -101,8 +101,9 @@ static void *mu_queue_get (mu_queue *q, nsync_time abs_deadline) {
 
 /* --------------------------- */
 
-#define INT_TO_PTR(x) ((char *)(((x) + 1) + (char *)0))
-#define PTR_TO_INT(p) (((char *) (p)) - 1 - (char *)0)
+static char ptr_to_int_c;
+#define INT_TO_PTR(x) ((x) + &ptr_to_int_c)
+#define PTR_TO_INT(p) (((char *) (p)) - &ptr_to_int_c)
 
 /* Put count integers on *q, in the sequence start*3, (start+1)*3, (start+2)*3, .... */
 static void producer_mu_n (testing t, mu_queue *q, int start, int count) {
