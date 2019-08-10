@@ -410,10 +410,14 @@ NSYNC_SRC_PLATFORM_CPP = [
     ":ios_x86_64": ["platform/posix/src/per_thread_waiter.c"],
     ":msvc_windows_x86_64": [
         "platform/win32/src/clock_gettime.c",
+        # Windows has no thread-specific data with thread-exit destructors; we
+        # must emulate it with C++ per-thread class destructors.
         "platform/win32/src/pthread_key_win32.cc",
-        "platform/c++11/src/per_thread_waiter.cc",
+        "platform/win32/src/per_thread_waiter.c",
     ],
-    "//conditions:default": ["platform/c++11/src/per_thread_waiter.cc"],
+    # It's dangerous to use C++ class destructors if we can avoid it, because
+    # nsync may be linked into the address space multiple times.
+    "//conditions:default": ["platform/posix/src/per_thread_waiter.c"],
 })
 
 # Generic library source.

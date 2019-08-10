@@ -5,7 +5,10 @@ PLATFORM_CPPFLAGS=-DNSYNC_USE_CPP11_TIMEPOINT -DNSYNC_ATOMIC_CPP11 -I../../platf
 PLATFORM_CFLAGS=-std=c++11 -Werror -Wall -Wextra -pedantic
 PLATFORM_LDFLAGS=-pthread
 MKDEP=${CC} -M -std=c++11
-PLATFORM_C=../../platform/linux/src/nsync_semaphore_futex.c ../../platform/c++11/src/per_thread_waiter.cc ../../platform/c++11/src/yield.cc ../../platform/c++11/src/time_rep_timespec.cc ../../platform/c++11/src/nsync_panic.cc
+# It's dangerous to use C++ class destructors if we can avoid it, because nsync
+# may be linked into the address space multiple times, so we use the posix
+# per_thread_waiter.
+PLATFORM_C=../../platform/linux/src/nsync_semaphore_futex.c ../../platform/posix/src/per_thread_waiter.c ../../platform/c++11/src/yield.cc ../../platform/c++11/src/time_rep_timespec.cc ../../platform/c++11/src/nsync_panic.cc
 PLATFORM_OBJS=nsync_semaphore_futex.o per_thread_waiter.o yield.o time_rep_timespec.o nsync_panic.o
 TEST_PLATFORM_C=../../platform/c++11/src/start_thread.cc
 TEST_PLATFORM_OBJS=start_thread.o

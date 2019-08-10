@@ -64,7 +64,9 @@ set (NSYNC_POSIX_SRC
 
 set (NSYNC_CPP_DEFINITIONS NSYNC_USE_CPP11_TIMEPOINT NSYNC_ATOMIC_CPP11)
 set (NSYNC_OS_CPP_SRC
-	"platform/c++11/src/per_thread_waiter.cc"
+	# Avoid use of the C++11 version of per_thread_waiter.  It behaves
+	# badly if multiple copies of nsync are linked into an address space.
+	"platform/posix/src/per_thread_waiter.c"
 	"platform/c++11/src/yield.cc"
 	"platform/c++11/src/time_rep_timespec.cc"
 	"platform/c++11/src/nsync_panic.cc"

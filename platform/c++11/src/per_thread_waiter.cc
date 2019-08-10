@@ -19,6 +19,7 @@ NSYNC_CPP_START_
 namespace {
 	class per_thread {
 	public:
+		per_thread();
 		~per_thread();
 		/* Return the per-thread value, and set the destructor to dest. */
 		void *get(void (*dest) (void *));
@@ -28,9 +29,17 @@ namespace {
 		void *value;
 		void (*dest) (void *);
 	};
+	per_thread::per_thread() {
+		this->value = nullptr;
+		this->dest = nullptr;
+	}
 	per_thread::~per_thread() {
-		if (this->dest != nullptr && this->value != nullptr) {
-			(*this->dest) (this->value);
+		void *value = this->value;
+		void (*dest) (void *) = this->dest;
+		this->value = nullptr;
+		this->dest = nullptr;
+		if (dest != nullptr && value != nullptr) {
+			(*dest) (value);
 		}
 	}
 	void *per_thread::get(void (*dest) (void *)) {

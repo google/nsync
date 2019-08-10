@@ -85,7 +85,7 @@ PerThreadData::~PerThreadData() {
 				void *value = this->array_[i].value;
 				this->array_[i].value = nullptr;
 				if (dest_copy[i].key == this->array_[i].key &&
-                                    dest != nullptr && value != nullptr) {
+                                    destructor != nullptr && value != nullptr) {
 					again = true;  // in case destructors set values.
 					(*destructor) (value);
 				}

@@ -80,12 +80,14 @@ NSYNC_CPP_START_
 
 static INLINE int atm_cas_nomb_u32_ (nsync_atomic_uint32_ *p, uint32_t o, uint32_t n) {
 	/* InterlockedCompareExchangeNoFence unavailable before Windows 8 */
-	return (InterlockedCompareExchange (NSYNC_ATOMIC_UINT32_PTR_ (p), n, o) == o);
+	return (InterlockedCompareExchange (
+		(LONG volatile *) NSYNC_ATOMIC_UINT32_PTR_ (p), n, o) == o);
 }
 
 static INLINE int atm_cas_barrier_u32_ (nsync_atomic_uint32_ *p, uint32_t o, uint32_t n) {
 	/* InterlockedCompareExchangeAcquire unavailable before Windows Vista */
-	return (InterlockedCompareExchange (NSYNC_ATOMIC_UINT32_PTR_ (p), n, o) == o);
+	return (InterlockedCompareExchange (
+		(LONG volatile *) NSYNC_ATOMIC_UINT32_PTR_ (p), n, o) == o);
 }
 
 #define ATM_CAS(p,o,n)        (atm_cas_nomb_u32_ ((p),(o),(n)))
