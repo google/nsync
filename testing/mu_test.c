@@ -110,7 +110,7 @@ static void test_mu_nthread (testing t) {
 	do {
 		int i;
 		test_data td;
-		memset (&td, 0, sizeof (td));
+		memset ((void *) &td, 0, sizeof (td));
 		td.t = t;
 		td.n_threads = 5;
 		td.loop_count = loop_count;
@@ -149,7 +149,7 @@ static void test_mutex_nthread (testing t) {
 	do {
 		int i;
 		test_data td;
-		memset (&td, 0, sizeof (td));
+		memset ((void *) &td, 0, sizeof (td));
 		td.t = t;
 		td.n_threads = 5;
 		td.loop_count = loop_count;
@@ -190,7 +190,7 @@ static void test_rwmutex_nthread (testing t) {
 	do {
 		int i;
 		test_data td;
-		memset (&td, 0, sizeof (td));
+		memset ((void *) &td, 0, sizeof (td));
 		td.t = t;
 		td.n_threads = 5;
 		td.loop_count = loop_count;
@@ -243,7 +243,7 @@ static void test_try_mu_nthread (testing t) {
 	do {
 		int i;
 		test_data td;
-		memset (&td, 0, sizeof (td));
+		memset ((void *) &td, 0, sizeof (td));
 		td.t = t;
 		td.n_threads = 5;
 		td.loop_count = loop_count;
@@ -275,7 +275,7 @@ typedef struct counter_s {
 /* Return a counter with initial value "initial". */
 static counter *counter_new (int initial) {
 	counter *c = (counter *) malloc (sizeof (*c));
-	memset (c, 0, sizeof (*c));
+	memset ((void *) c, 0, sizeof (*c));
 	c->value = initial;
 	return (c);
 }
@@ -1017,7 +1017,7 @@ static void contended_state_run_test (contended_state *cs, testing t,
    nsync_mu locks, with small critical sections.  */
 static void benchmark_mu_contended (testing t) {
 	contended_state cs;
-	memset (&cs, 0, sizeof (cs));
+	memset ((void *) &cs, 0, sizeof (cs));
 	contended_state_run_test (&cs, t, &cs.mu, (void (*) (void*))&nsync_mu_lock,
 				  (void (*) (void*))&nsync_mu_unlock);
 }
@@ -1026,7 +1026,7 @@ static void benchmark_mu_contended (testing t) {
    pthread_mutex_t locks, with small critical sections.  */
 static void benchmark_mutex_contended (testing t) {
 	contended_state cs;
-	memset (&cs, 0, sizeof (cs));
+	memset ((void *) &cs, 0, sizeof (cs));
 	pthread_mutex_init (&cs.mutex, NULL);
 	contended_state_run_test (&cs, t, &cs.mutex, &void_pthread_mutex_lock,
 				  &void_pthread_mutex_unlock);
@@ -1037,7 +1037,7 @@ static void benchmark_mutex_contended (testing t) {
    pthread_rwlock_t locks, with small critical sections.  */
 static void benchmark_wmutex_contended (testing t) {
 	contended_state cs;
-	memset (&cs, 0, sizeof (cs));
+	memset ((void *) &cs, 0, sizeof (cs));
 	pthread_rwlock_init (&cs.rwmutex, NULL);
 	contended_state_run_test (&cs, t, &cs.rwmutex, &void_pthread_rwlock_wrlock,
 				  &void_pthread_rwlock_unlock);

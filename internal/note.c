@@ -171,7 +171,7 @@ nsync_note nsync_note_new (nsync_note parent,
 			   nsync_time abs_deadline) {
 	nsync_note n = (nsync_note) malloc (sizeof (*n));
 	if (n != NULL) {
-		memset (n, 0, sizeof (*n));
+		memset ((void *) n, 0, sizeof (*n));
 		nsync_dll_init_ (&n->parent_child_link, n);
 		set_expiry_time (n, abs_deadline);
 		if (!nsync_note_is_notified (n) && parent != NULL) {

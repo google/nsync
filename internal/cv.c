@@ -27,7 +27,7 @@ NSYNC_CPP_START_
 
 /* Initialize *cv. */
 void nsync_cv_init (nsync_cv *cv) {
-        memset (cv, 0, sizeof (*cv));
+        memset ((void *) cv, 0, sizeof (*cv));
 }
 
 /* Wake the cv waiters in the circular list pointed to by

@@ -40,7 +40,7 @@ static cv_queue *cv_queue_new (int limit) {
 	cv_queue *q;
 	int size = offsetof (struct cv_queue_s, data) + sizeof (q->data[0]) * limit;
 	q = (cv_queue *) malloc (size);
-	memset (q, 0, size);
+	memset ((void *) q, 0, size);
 	q->limit = limit;
 	return (q);
 }
@@ -470,7 +470,7 @@ static void test_cv_debug (testing t) {
 	int buflen;
 	struct debug_state xs;
 	struct debug_state *s = &xs;
-	memset (s, 0, sizeof (*s));
+	memset ((void *) s, 0, sizeof (*s));
 
 	/* Use nsync_*_debugger to check that they work. */
 	tmp = nsync_mu_debugger (&s->mu);
@@ -697,7 +697,7 @@ static void test_cv_transfer (testing t) {
 						TEST_LOG (t, ("transfer waiters %d wakeup_type %d  cv_writers %d  ccs_reader %d\n",
 							      waiters, wakeup_type, cv_writers, ccs_reader));
 					}
-					memset (cvt, 0, sizeof (*cvt));
+					memset ((void *) cvt, 0, sizeof (*cvt));
 
 					/* Start the waiter threads that use condition variables. */
 					for (i = 0; i < waiters-1; i++) {

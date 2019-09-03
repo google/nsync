@@ -494,7 +494,7 @@ static void test_cv_timeout_stress (testing t) {
 	nsync_time deadline;
 	deadline = nsync_time_add (nsync_time_now (), nsync_time_ms (5000));
 	do {
-		memset (&s, 0, sizeof (s));
+		memset ((void *) &s, 0, sizeof (s));
 		s.loop_count = loop_count;
 		s.cv_threads_per_value = 4;
 		s.cv_reader_threads_per_value = 2;
@@ -514,7 +514,7 @@ static void test_mu_timeout_stress (testing t) {
 	nsync_time deadline;
 	deadline = nsync_time_add (nsync_time_now (), nsync_time_ms (5000));
 	do {
-		memset (&s, 0, sizeof (s));
+		memset ((void *) &s, 0, sizeof (s));
 		s.loop_count = loop_count;
 		s.cv_threads_per_value = 0;
 		s.cv_reader_threads_per_value = 0;
@@ -534,7 +534,7 @@ static void test_mu_cv_timeout_stress (testing t) {
 	nsync_time deadline;
 	deadline = nsync_time_add (nsync_time_now (), nsync_time_ms (5000));
 	do {
-		memset (&s, 0, sizeof (s));
+		memset ((void *) &s, 0, sizeof (s));
 		s.loop_count = loop_count;
 		s.cv_threads_per_value = 4;
 		s.cv_reader_threads_per_value = 1;

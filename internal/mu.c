@@ -27,7 +27,7 @@ NSYNC_CPP_START_
 
 /* Initialize *mu. */
 void nsync_mu_init (nsync_mu *mu) {
-	memset (mu, 0, sizeof (*mu));
+	memset ((void *) mu, 0, sizeof (*mu));
 }
 
 /* Release the mutex spinlock. */

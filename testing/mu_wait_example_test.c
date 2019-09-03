@@ -145,7 +145,7 @@ static void example_mu_wait (testing t) {
 		"five\n"
 		"timeout 1s\n";
 
-	memset (&q, 0, sizeof (q));
+	memset ((void *) &q, 0, sizeof (q));
 	memset (&output, 0, sizeof (output));
 
 	closure_fork (closure_add_and_wait_mu (&add_and_wait_mu, &q, nsync_time_ms (500),

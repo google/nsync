@@ -36,7 +36,7 @@ typedef struct starve_data_s {
 
 /* initialize *sd */
 static void starve_data_init (starve_data *sd, int threads) {
-	memset (sd, 0, sizeof (*sd));
+	memset ((void *) sd, 0, sizeof (*sd));
 	sd->not_yet_started = threads;
 	sd->not_yet_done = threads;
 	sd->start = nsync_time_now ();

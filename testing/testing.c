@@ -137,7 +137,7 @@ testing_base testing_new (int argc, char *argv[], int flags) {
 	int i;
 	int argn;
 	testing_base tb = (testing_base)malloc (sizeof (*tb));
-	memset (tb, 0, sizeof (*tb));
+	memset ((void *) tb, 0, sizeof (*tb));
 	tb->flags = flags;
 	tb->fp = stderr;
 	tb->argc = argc;
@@ -298,7 +298,7 @@ CLOSURE_DECL_BODY1 (testing, testing)
 /* Return whether there's a "spare thread"; that is, whether the current count
    of child threads is less than the allowed parallelism.  */
 static int spare_thread (const void *v) {
-	const testing_base tb = (const testing_base) v;
+	const_testing_base tb = (const_testing_base) v;
 	return (tb->child_count < tb->parallelism);
 }
 
@@ -348,7 +348,7 @@ void testing_run_ (testing_base tb, void (*f) (testing t), const char *name, int
 	    (tb->include_pat == NULL || match (tb->include_pat, name)) &&
 	    (tb->exclude_pat == NULL || !match (tb->exclude_pat, name))) {
 		testing t = (testing) malloc (sizeof (*t));
-		memset (t, 0, sizeof (*t));
+		memset ((void *) t, 0, sizeof (*t));
 		nsync_dll_init_ (&t->siblings, t);
 		t->base = tb;
 		t->f = f;

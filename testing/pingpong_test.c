@@ -44,7 +44,7 @@ typedef struct ping_pong_s {
 } ping_pong;
 
 static void ping_pong_init (ping_pong *pp, int limit) {
-	memset (pp, 0, sizeof (*pp));
+	memset ((void *) pp, 0, sizeof (*pp));
 	pthread_mutex_init (&pp->mutex, NULL);
 	pthread_rwlock_init (&pp->rwmutex, NULL);
 	pthread_cond_init (&pp->cond[0], NULL);

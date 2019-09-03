@@ -36,7 +36,7 @@ struct nsync_counter_s_ {
 nsync_counter nsync_counter_new (uint32_t value) {
 	nsync_counter c = (nsync_counter) malloc (sizeof (*c));
 	if (c != NULL) {
-		memset (c, 0, sizeof (*c));
+		memset ((void *) c, 0, sizeof (*c));
 		ATM_STORE (&c->value, value);
 	}
 	return (c);

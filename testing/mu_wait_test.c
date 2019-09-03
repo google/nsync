@@ -39,7 +39,7 @@ static mu_queue *mu_queue_new (int limit) {
 	mu_queue *q;
 	int size = offsetof (struct mu_queue_s, data) + sizeof (q->data[0]) * limit;
 	q = (mu_queue *) malloc (size);
-	memset (q, 0, size);
+	memset ((void *) q, 0, size);
 	q->limit = limit;
 	return (q);
 }
