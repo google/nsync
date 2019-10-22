@@ -59,7 +59,7 @@ If there is no suitable subdirectory, on most Unix-like systems you can create
 one with
 	tools/mkmakefile.sh
 
-The main reason it might fail is if it cannot find a suitable implentation of
+The main reason it might fail is if it cannot find a suitable implementation of
 atomic operations on the platform.  Atomic operations may be provided by
 - compiler-dependent interfaces (currently, gcc and clang)
   These are auto detected by mkmakefile.sh.
