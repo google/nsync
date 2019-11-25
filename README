@@ -1,3 +1,9 @@
+How create an issue?
+I believe that faced an issue on ppc64le in tensorflow [nsync::nsync_mu_semaphore_p_with_deadline](https://github.com/tensorflow/tensorflow/issues/34555)
+TF 1.13.1 uses nsync-1.20.1
+
+Please also add Changelog
+
 nsync is a C library that exports various synchronization primitives:
 	locks
 	condition variables
