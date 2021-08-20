@@ -82,6 +82,8 @@ detected_arch=mipsX
 detected_arch=ppcX
 #elif defined(__riscv__) || defined(__riscv)
 detected_arch=riscvX
+#elif defined(__loongarch__)
+detected_arch=loongarchX
 #elif defined(__pnacl__)
 detected_arch=pnaclX
 #elif defined(__sparc64__)
