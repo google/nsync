@@ -143,13 +143,13 @@ static nsync_atomic_uint32_ free_waiters_mu; /* spinlock; protects free_waiters 
 
 static THREAD_LOCAL waiter *waiter_for_thread;
 static void waiter_destroy (void *v) {
+	waiter *w = (waiter *) v;
 	// Reset waiter_for_thread in case another thread-local variable reuses
 	// the waiter in its destructor while the waiter is taken by the other
 	// thread from free_waiters. This can happen as the destruction order
 	// of thread-local variables can be arbitrary in some platform e.g.
 	// POSIX.
 	waiter_for_thread = NULL;
-	waiter *w = (waiter *) v;
 	IGNORE_RACES_START ();
 	ASSERT ((w->flags & (WAITER_RESERVED|WAITER_IN_USE)) == WAITER_RESERVED);
 	w->flags &= ~WAITER_RESERVED;
