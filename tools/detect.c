@@ -76,6 +76,8 @@ detected_arch=x86_64X
 detected_arch=x86_32X
 #elif defined(__alpha__)
 detected_arch=alphaX
+#elif defined(__loongarch__)
+detected_arch=loongarchX
 #elif defined(__mips64__) || defined(__mips32__) || defined(__mips__)
 detected_arch=mipsX
 #elif defined(__ppc64__) || defined(__powerpc64__) || defined(__ppc__) || defined(__powerpc__)
