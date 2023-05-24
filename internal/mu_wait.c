@@ -107,6 +107,7 @@ static int mu_try_acquire_after_timeout_or_cancel (nsync_mu *mu, lock_type *l_ty
 		/* Release spinlock and *mu. */
 		ATM_STORE_REL (&mu->word, old_word); /* release store */
 	}
+	RWLOCK_TRYACQUIRE (success, mu, l_type == nsync_writer_type_);
 	return (success);
 }
 
@@ -212,6 +213,7 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
 							             &w->nw.q);
 		}
 		/* Release spinlock and *mu. */
+		RWLOCK_RELEASE (mu, l_type == nsync_writer_type_);
 		do {
 			old_word = ATM_LOAD (&mu->word);
 			add_to_acquire = l_type->add_to_acquire;
@@ -253,6 +255,7 @@ int nsync_mu_wait_with_deadline (nsync_mu *mu,
 		if (!have_lock) {
 			/* If we didn't reacquire due to a cancellation/timeout, acquire now. */
 			nsync_mu_lock_slow_ (mu, w, MU_DESIG_WAKER, l_type);
+			RWLOCK_TRYACQUIRE (1, mu, l_type == nsync_writer_type_);
 		}
 		condition_is_true = (condition == NULL || (*condition) (condition_arg));
 	}
@@ -295,6 +298,7 @@ void nsync_mu_wait (nsync_mu *mu, int (*condition) (const void *condition_arg),
      nsync_mu_wait/nsync_mu_wait_with_deadline waits, and
    - when performance is significantly improved by doing so.  */
 void nsync_mu_unlock_without_wakeup (nsync_mu *mu) {
+	RWLOCK_RELEASE (mu, 1);
 	IGNORE_RACES_START ();
 	/* See comment in nsync_mu_unlock(). */
 	if (!ATM_CAS_REL (&mu->word, MU_WLOCK, 0)) {

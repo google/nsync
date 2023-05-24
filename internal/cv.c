@@ -293,6 +293,7 @@ int nsync_cv_wait_with_deadline_generic (nsync_cv *pcv, void *pmu,
 		/* Requeue on *pmu using existing waiter struct; current thread
 		   is the designated waker.  */
 		nsync_mu_lock_slow_ (cv_mu, w, MU_DESIG_WAKER, w->l_type);
+		RWLOCK_TRYACQUIRE (1, cv_mu, w->l_type == nsync_writer_type_);
 		nsync_waiter_free_ (w);
 	} else {
 		/* Traditional case: We've woken from the cv, and need to reacquire *pmu. */

@@ -32,22 +32,31 @@
 #endif
 #if defined(__SANITIZE_THREAD__)
 NSYNC_C_START_
-void AnnotateIgnoreWritesBegin(const char* file, int line);
-void AnnotateIgnoreWritesEnd(const char* file, int line);
-void AnnotateIgnoreReadsBegin(const char* file, int line);
-void AnnotateIgnoreReadsEnd(const char* file, int line);
+void AnnotateIgnoreWritesBegin (const char* file, int line);
+void AnnotateIgnoreWritesEnd (const char* file, int line);
+void AnnotateIgnoreReadsBegin (const char* file, int line);
+void AnnotateIgnoreReadsEnd (const char* file, int line);
+void AnnotateRWLockCreate (const char *file, int line, void *mu);
+void AnnotateRWLockAcquired (const char *file, int line, void *mu, long write);
+void AnnotateRWLockReleased (const char *file, int line, void *mu, long write);
 NSYNC_C_END_
+#define RWLOCK_CREATE(mu_) AnnotateRWLockCreate (__FILE__, __LINE__, (mu_))
+#define RWLOCK_TRYACQUIRE(cond_, mu_, wrt_) do { if (cond_) { AnnotateRWLockAcquired (__FILE__, __LINE__, (mu_), (wrt_)); } } while (0)
+#define RWLOCK_RELEASE(mu_, wrt_) do { AnnotateRWLockReleased (__FILE__, __LINE__, (mu_), (wrt_)); } while (0)
 #define IGNORE_RACES_START() \
 	do { \
-		AnnotateIgnoreReadsBegin(__FILE__, __LINE__); \
-		AnnotateIgnoreWritesBegin(__FILE__, __LINE__); \
+		AnnotateIgnoreReadsBegin (__FILE__, __LINE__); \
+		AnnotateIgnoreWritesBegin (__FILE__, __LINE__); \
 	} while (0)
 #define IGNORE_RACES_END() \
 	do { \
-		AnnotateIgnoreWritesEnd(__FILE__, __LINE__); \
-		AnnotateIgnoreReadsEnd(__FILE__, __LINE__); \
+		AnnotateIgnoreWritesEnd (__FILE__, __LINE__); \
+		AnnotateIgnoreReadsEnd (__FILE__, __LINE__); \
 	} while (0)
 #else
+#define RWLOCK_CREATE(mu_)
+#define RWLOCK_TRYACQUIRE(cond_, mu_, wrt_)
+#define RWLOCK_RELEASE(mu_, wrt_)
 #define IGNORE_RACES_START()
 #define IGNORE_RACES_END()
 #endif

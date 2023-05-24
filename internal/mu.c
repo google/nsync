@@ -28,6 +28,7 @@ NSYNC_CPP_START_
 /* Initialize *mu. */
 void nsync_mu_init (nsync_mu *mu) {
 	memset ((void *) mu, 0, sizeof (*mu));
+	RWLOCK_CREATE (mu);
 }
 
 /* Release the mutex spinlock. */
@@ -139,6 +140,7 @@ int nsync_mu_trylock (nsync_mu *mu) {
 				       (old_word + MU_WADD_TO_ACQUIRE) & ~MU_WCLEAR_ON_ACQUIRE));
 	}
 	IGNORE_RACES_END ();
+	RWLOCK_TRYACQUIRE (result, mu, 1);
 	return (result);
 }
 
@@ -156,6 +158,7 @@ void nsync_mu_lock (nsync_mu *mu) {
 		}
 	}
 	IGNORE_RACES_END ();
+	RWLOCK_TRYACQUIRE (1, mu, 1);
 }
 
 /* Attempt to acquire *mu in reader mode without blocking, and return non-zero
@@ -174,6 +177,7 @@ int nsync_mu_rtrylock (nsync_mu *mu) {
 				       (old_word+MU_RADD_TO_ACQUIRE) & ~MU_RCLEAR_ON_ACQUIRE));
 	}
 	IGNORE_RACES_END ();
+	RWLOCK_TRYACQUIRE (result, mu, 0);
 	return (result);
 }
 
@@ -191,6 +195,7 @@ void nsync_mu_rlock (nsync_mu *mu) {
 		}
 	}
 	IGNORE_RACES_END ();
+	RWLOCK_TRYACQUIRE (1, mu, 0);
 }
 
 /* Invoke the condition associated with *p, which is an element of
@@ -450,6 +455,7 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 
 /* Unlock *mu, which must be held in write mode, and wake waiters, if appropriate. */
 void nsync_mu_unlock (nsync_mu *mu) {
+	RWLOCK_RELEASE (mu, 1);
 	IGNORE_RACES_START ();
 	/* C is not a garbage-collected language, so we cannot release until we
 	   can be sure that we will not have to touch the mutex again to wake a
@@ -483,6 +489,7 @@ void nsync_mu_unlock (nsync_mu *mu) {
 
 /* Unlock *mu, which must be held in read mode, and wake waiters, if appropriate. */
 void nsync_mu_runlock (nsync_mu *mu) {
+	RWLOCK_RELEASE (mu, 0);
 	IGNORE_RACES_START ();
 	/* See comment in nsync_mu_unlock(). */
 	if (!ATM_CAS_REL (&mu->word, MU_RLOCK, 0)) {
