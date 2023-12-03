@@ -79,6 +79,14 @@ set (NSYNC_OS_CPP_SRC
 # is false when ${CMAKE_C_COMPILER_ID} has the value "MSVC"!  See
 #    https://cmake.org/cmake/help/v3.1/policy/CMP0054.html
 
+if ("${CMAKE_C_COMPILER_ID}X" STREQUAL "MSVCX")
+	# Suppress warnings to reduce build log size.
+	add_compile_options (/wd4057 /wd4100 /wd4152 /wd4242 /wd4244 /wd4255 /wd4267)
+	add_compile_options (/wd4365 /wd4389 /wd4458 /wd4571 /wd4625 /wd4626 /wd4668)
+	add_compile_options (/wd4702 /wd4710 /wd4774 /wd4820 /wd5026 /wd5027 /wd5039)
+	add_compile_options (/wd5045)
+endif ()
+
 # Pick the include directory for the operating system.
 if ("${CMAKE_SYSTEM_NAME}X" STREQUAL "WindowsX")
 	include_directories ("${PROJECT_SOURCE_DIR}/platform/win32")
@@ -102,12 +110,6 @@ if ("${CMAKE_SYSTEM_NAME}X" STREQUAL "WindowsX")
 	set (NSYNC_TEST_OS_SRC
 		"platform/win32/src/start_thread.c"
 	)
-
-	# Suppress warnings to reduce build log size.
-	add_definitions (/wd4057 /wd4100 /wd4152 /wd4242 /wd4244 /wd4255 /wd4267)
-	add_definitions (/wd4365 /wd4389 /wd4458 /wd4571 /wd4625 /wd4626 /wd4668)
-	add_definitions (/wd4702 /wd4710 /wd4774 /wd4820 /wd5026 /wd5027 /wd5039)
-	add_definitions (/wd5045)
 elseif ("${CMAKE_SYSTEM_NAME}X" STREQUAL "DarwinX")
 	include_directories ("${PROJECT_SOURCE_DIR}/platform/macos")
 	# Some versions of MacOS, such as Sierra, require _DARWIN_C_SOURCE
