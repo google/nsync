@@ -400,11 +400,11 @@ endif ()
 
 set (CMAKE_SKIP_INSTALL_ALL_DEPENDENCY ON)
 
-install (TARGETS nsync
+install (TARGETS nsync EXPORT nsync
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT RuntimeLibraries
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT Development)
 
-install (TARGETS nsync_cpp OPTIONAL
+install (TARGETS nsync_cpp EXPORT nsync_cpp OPTIONAL
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT RuntimeLibraries
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT Development)
 
@@ -429,3 +429,11 @@ foreach (NSYNC_INCLUDE ${NSYNC_INCLUDES})
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 		COMPONENT Development)
 endforeach ()
+
+install(EXPORT nsync
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/nsync
+        FILE        nsyncConfig.cmake)
+
+install(EXPORT nsync_cpp
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/nsync_cpp
+        FILE        nsync_cppConfig.cmake)
