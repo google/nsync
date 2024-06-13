@@ -13,6 +13,7 @@
   limitations under the License. */
 
 #include <Windows.h>
+#include <stdlib.h>
 #include "nsync_cpp.h"
 #include "nsync_time.h"
 #include "sem.h"
