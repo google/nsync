@@ -13,128 +13,95 @@
 # The latter uses no OS-specific system calls or architecture-specific atomic
 # operations.
 
+load(":bazel/pkg_path_name.bzl", "pkg_path_name")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
-exports_files(["LICENSE", "VERSION"])
+exports_files([
+    "LICENSE",
+    "VERSION",
+])
 
 # ---------------------------------------------
-# Parameters to the compilation:  compiler (e.g., for atomics), architecture
-# (e.g., for load and store barrier behaviour), and OS.
-# Bazel merges these into one, somewhat slippery, "cpu" string.
-# Bazel uses a rather verbose mechanism for choosing which implementations
-# are needed on given platforms; hence all the config_setting() rules below.
+# Recent versions of bazel have @platforms config_settings for cpu type and
+# operating system, replacing its slippery "cpu" value which conflated several
+# platform-related concepts.  However, bazel's @platforms still doesn't have
+# standardized settings for the compiler type, so config_setting rules
+# similar to those below can be found in many packages that use bazel.
 
 config_setting(
-    name = "gcc_linux_x86_32_1",
-    values = {"cpu": "piii"},
+    name = "gcc",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "gcc"},
 )
 
 config_setting(
-    name = "gcc_linux_x86_64_1",
-    values = {"cpu": "k8"},
+    name = "clang",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
 )
 
 config_setting(
-    name = "gcc_linux_x86_64_2",
-    values = {"cpu": "haswell"},
+    name = "msvc-cl",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "msvc-cl"},
 )
 
 config_setting(
-    name = "gcc_linux_aarch64",
-    values = {"cpu": "aarch64"},
+    name = "mingw-gcc",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "mingw-gcc"},
 )
 
 config_setting(
-    name = "gcc_linux_ppc64",
-    values = {"cpu": "ppc"},
-)
-
-config_setting(
-    name = "gcc_linux_s390x",
-    values = {"cpu": "s390x"},
-)
-
-config_setting(
-    name = "clang_macos_x86_64",
-    values = {"cpu": "darwin"},
-)
-
-config_setting(
-    name = "android_x86_32",
-    values = {"cpu": "x86"},
-)
-
-config_setting(
-    name = "android_x86_64",
-    values = {"cpu": "x86_64"},
-)
-
-config_setting(
-    name = "android_armeabi",
-    values = {"cpu": "armeabi"},
-)
-
-config_setting(
-    name = "android_arm",
-    values = {"cpu": "armeabi-v7a"},
-)
-
-config_setting(
-    name = "android_arm64",
-    values = {"cpu": "arm64-v8a"},
-)
-
-config_setting(
-    name = "msvc_windows_x86_64",
-    values = {"cpu": "x64_windows"},
-)
-
-config_setting(
-    name = "freebsd",
-    values = {"cpu": "freebsd"},
-)
-
-config_setting(
-    name = "ios_x86_64",
-    values = {"cpu": "ios_x86_64"},
+    name = "clang-cl",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang-cl"},
 )
 
 # ---------------------------------------------
 # Compilation options.
 
-load(":bazel/pkg_path_name.bzl", "pkg_path_name")
-
 # Compilation options that apply to both C++11 and C.
 NSYNC_OPTS_GENERIC = select({
     # Select the CPU architecture include directory.
+    # Some of bazel's CPU specifiers are unclear (e.g., what CPUs are "ppc" vs
+    # "ppc32"?) so the correspondences may not be quite right.
     # This select() has no real effect in the C++11 build, but satisfies a
     # #include that would otherwise need a #if.
-    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/x86_32"],
-    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/x86_64"],
-    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/x86_64"],
-    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
-    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/ppc64"],
-    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/s390x"],
-    ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
-    ":freebsd": ["-I" + pkg_path_name() + "/platform/x86_64"],
-    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
-    ":android_x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
-    ":android_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
-    ":android_armeabi": ["-I" + pkg_path_name() + "/platform/arm"],
-    ":android_arm": ["-I" + pkg_path_name() + "/platform/arm"],
-    ":android_arm64": ["-I" + pkg_path_name() + "/platform/aarch64"],
-    ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
+
+    # The following ought to work, but lead to errors on some versions of bazel:
+    # "@platforms//cpu:aarch32": ["-I" + pkg_path_name() + "/platform/arm"],
+    # "@platforms//cpu:armv6-m": ["-I" + pkg_path_name() + "/platform/arm"],
+    # "@platforms//cpu:armv7-m": ["-I" + pkg_path_name() + "/platform/arm"],
+    # "@platforms//cpu:armv7e-m": ["-I" + pkg_path_name() + "/platform/arm"],
+    # "@platforms//cpu:armv7e-mf": ["-I" + pkg_path_name() + "/platform/arm"],
+    # "@platforms//cpu:armv8-m": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    # "@platforms//cpu:cortex-r52": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    # "@platforms//cpu:cortex-r82": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    # "@platforms//cpu:ppc32": ["-I" + pkg_path_name() + "/platform/ppc32"],
+    # "@platforms//cpu:ppc64le": ["-I" + pkg_path_name() + "/platform/ppc64"],
+    # "@platforms//cpu:riscv32": ["-I" + pkg_path_name() + "/platform/riscv"],
+    # nsync doesn't yet have a port for these:
+    # "@platforms//cpu:wasm32"
+    # "@platforms//cpu:wasm64"
+    "@platforms//cpu:aarch64": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    "@platforms//cpu:arm64_32": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    "@platforms//cpu:arm64e": ["-I" + pkg_path_name() + "/platform/aarch64"],
+    "@platforms//cpu:armv7": ["-I" + pkg_path_name() + "/platform/arm"],
+    "@platforms//cpu:armv7k": ["-I" + pkg_path_name() + "/platform/arm"],
+    "@platforms//cpu:i386": ["-I" + pkg_path_name() + "/platform/x86_32"],
+    "@platforms//cpu:mips64": ["-I" + pkg_path_name() + "/platform/mips"],
+    "@platforms//cpu:ppc": ["-I" + pkg_path_name() + "/platform/ppc32"],
+    "@platforms//cpu:riscv64": ["-I" + pkg_path_name() + "/platform/riscv"],
+    "@platforms//cpu:s390x": ["-I" + pkg_path_name() + "/platform/s390x"],
+    "@platforms//cpu:x86_32": ["-I" + pkg_path_name() + "/platform/x86_32"],
+    "@platforms//cpu:x86_64": ["-I" + pkg_path_name() + "/platform/x86_64"],
     "//conditions:default": [],
 }) + [
     "-I" + pkg_path_name() + "/public",
     "-I" + pkg_path_name() + "/internal",
     "-I" + pkg_path_name() + "/platform/posix",
 ] + select({
-    ":msvc_windows_x86_64": [
-    ],
-    ":freebsd": ["-pthread"],
+    "@platforms//os:windows": [],
+    "@platforms//os:freebsd": ["-pthread"],
     "//conditions:default": [
         "-D_POSIX_C_SOURCE=200809L",
         "-pthread",
@@ -144,53 +111,47 @@ NSYNC_OPTS_GENERIC = select({
 # Options for C build, rather then C++11 build.
 NSYNC_OPTS = select({
     # Select the OS include directory.
-    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
-    ":freebsd": ["-I" + pkg_path_name() + "/platform/freebsd"],
-    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/macos"],
-    ":android_x86_32": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":android_x86_64": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":android_armeabi": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":android_arm": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":android_arm64": ["-I" + pkg_path_name() + "/platform/linux"],
-    ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/win32"],
+
+    # The following ought to work, but lead to errors on some versions of bazel:
+    # "@platforms//os:chromiumos": ["-I" + pkg_path_name() + "/platform/linux"],
+    # "@platforms//os:netbsd": ["-I" + pkg_path_name() + "/platform/netbsd"],
+    # nsync doesn't yet have a port for these:
+    # "@platforms//os:emscripten"
+    # "@platforms//os:fuchsia"
+    # "@platforms//os:haiku"
+    # "@platforms//os:nixos"
+    # "@platforms//os:qnx"
+    # "@platforms//os:tvos"
+    # "@platforms//os:visionos"
+    # "@platforms//os:vxworks"
+    # "@platforms//os:wasi"
+    # "@platforms//os:watchos"
+    "@platforms//os:android": ["-I" + pkg_path_name() + "/platform/linux"],
+    "@platforms//os:freebsd": ["-I" + pkg_path_name() + "/platform/freebsd"],
+    "@platforms//os:ios": ["-I" + pkg_path_name() + "/platform/macos"],
+    "@platforms//os:linux": ["-I" + pkg_path_name() + "/platform/linux"],
+    "@platforms//os:macos": ["-I" + pkg_path_name() + "/platform/macos"],
+    "@platforms//os:openbsd": ["-I" + pkg_path_name() + "/platform/openbsd"],
+    "@platforms//os:windows": ["-I" + pkg_path_name() + "/platform/win32"],
     "//conditions:default": [],
 }) + select({
     # Select the compiler include directory.
-    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":clang_macos_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
-    ":freebsd": ["-I" + pkg_path_name() + "/platform/clang"],
-    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/clang"],
-    ":android_x86_32": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":android_x86_64": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":android_armeabi": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":android_arm": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":android_arm64": ["-I" + pkg_path_name() + "/platform/gcc"],
-    ":msvc_windows_x86_64": ["-I" + pkg_path_name() + "/platform/msvc"],
+    ":gcc": ["-I" + pkg_path_name() + "/platform/gcc"],
+    ":clang": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":msvc-cl": ["-I" + pkg_path_name() + "/platform/msvc"],
+    "//conditions:default": ["-I" + pkg_path_name() + "/platform/gcc"],
 }) + select({
     # Apple deprecated their atomics library, yet recent versions have no
     # working version of stdatomic.h; so some recent versions need one, and
     # other versions prefer the other.  For the moment, just ignore the
-    # depreaction.
-    ":clang_macos_x86_64": ["-Wno-deprecated-declarations"],
+    # deprecation.
+    "@platforms//os:macos": ["-Wno-deprecated-declarations"],
     "//conditions:default": [],
 }) + NSYNC_OPTS_GENERIC
 
 # Options for C++11 build, rather then C build.
 NSYNC_OPTS_CPP = select({
-    ":msvc_windows_x86_64": [
-        "/TP",
-    ],
+    ":msvc-cl": ["/TP"],
     "//conditions:default": [
         "-x",
         "c++",
@@ -199,41 +160,50 @@ NSYNC_OPTS_CPP = select({
 }) + select({
     # Some versions of MacOS (notably Sierra) require -D_DARWIN_C_SOURCE
     # to include some standard C++11 headers, like <mutex>.
-    ":clang_macos_x86_64": ["-D_DARWIN_C_SOURCE"],
+    "@platforms//os:macos": ["-D_DARWIN_C_SOURCE"],
     "//conditions:default": [],
 }) + select({
     # On Linux, the C++11 library's synchronization primitives are
     # surprisingly slow.   See also NSYNC_SRC_PLATFORM_CPP, below.
-    ":gcc_linux_x86_32_1": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
-    ":gcc_linux_x86_64_1": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
-    ":gcc_linux_x86_64_2": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
-    ":gcc_linux_aarch64": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
-    ":gcc_linux_ppc64": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
-    ":gcc_linux_s390x": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
+    "@platforms//os:linux": ["-I" + pkg_path_name() + "/platform/c++11.futex"],
     "//conditions:default": [],
 }) + [
     "-DNSYNC_ATOMIC_CPP11",
     "-DNSYNC_USE_CPP11_TIMEPOINT",
     "-I" + pkg_path_name() + "/platform/c++11",
 ] + select({
-    # must follow the -I...platform/c++11
-    ":ios_x86_64": ["-I" + pkg_path_name() + "/platform/gcc_no_tls"],
-    ":msvc_windows_x86_64": [
+    # This section must follow the -I...platform/c++11
+    # We assume here that msvc-cl, mingw-gcc, and clang-cl all imply windows.
+    # It might have been clearer to use a nested select(), but bazel disallows
+    # that.
+    "@platforms//os:ios": ["-I" + pkg_path_name() + "/platform/gcc_no_tls"],
+    ":msvc-cl": [
         "-I" + pkg_path_name() + "/platform/win32",
         "-I" + pkg_path_name() + "/platform/msvc",
     ],
+    ":mingw-gcc": [
+        "-I" + pkg_path_name() + "/platform/win32",
+        "-I" + pkg_path_name() + "/platform/gcc",
+    ],
+    ":clang-cl": [
+        "-I" + pkg_path_name() + "/platform/win32",
+        "-I" + pkg_path_name() + "/platform/clang",
+    ],
+    ":clang": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":gcc": ["-I" + pkg_path_name() + "/platform/gcc"],
+    # Hope that anything we do not recognize is gcc-compatible.
     "//conditions:default": ["-I" + pkg_path_name() + "/platform/gcc"],
 }) + NSYNC_OPTS_GENERIC
 
 # Link options (for tests) built in C (rather than C++11).
 NSYNC_LINK_OPTS = select({
-    ":msvc_windows_x86_64": [],
+    ":msvc-cl": [],
     "//conditions:default": ["-pthread"],
 })
 
 # Link options (for tests) built in C++11 (rather than C).
 NSYNC_LINK_OPTS_CPP = select({
-    ":msvc_windows_x86_64": [],
+    ":msvc-cl": [],
     "//conditions:default": ["-pthread"],
 })
 
@@ -364,23 +334,48 @@ NSYNC_SRC_FREEBSD = [
     "platform/posix/src/nsync_panic.c",
 ]
 
+# NetBSD-specific library source.
+NSYNC_SRC_NETBSD = [
+    "platform/posix/src/nsync_semaphore_sem_t.c",
+    "platform/posix/src/per_thread_waiter.c",
+    "platform/posix/src/yield.c",
+    "platform/posix/src/time_rep.c",
+    "platform/posix/src/nsync_panic.c",
+]
+
+# OpenBSD-specific library source.
+NSYNC_SRC_OPENBSD = [
+    "platform/posix/src/nsync_semaphore_sem_t.c",
+    "platform/posix/src/per_thread_waiter.c",
+    "platform/posix/src/yield.c",
+    "platform/posix/src/time_rep.c",
+    "platform/posix/src/nsync_panic.c",
+]
+
 # OS-specific library source.
 NSYNC_SRC_PLATFORM = select({
-    ":gcc_linux_x86_32_1": NSYNC_SRC_LINUX,
-    ":gcc_linux_x86_64_1": NSYNC_SRC_LINUX,
-    ":gcc_linux_x86_64_2": NSYNC_SRC_LINUX,
-    ":gcc_linux_aarch64": NSYNC_SRC_LINUX,
-    ":gcc_linux_ppc64": NSYNC_SRC_LINUX,
-    ":gcc_linux_s390x": NSYNC_SRC_LINUX,
-    ":clang_macos_x86_64": NSYNC_SRC_MACOS,
-    ":freebsd": NSYNC_SRC_FREEBSD,
-    ":ios_x86_64": NSYNC_SRC_MACOS,
-    ":android_x86_32": NSYNC_SRC_ANDROID,
-    ":android_x86_64": NSYNC_SRC_ANDROID,
-    ":android_armeabi": NSYNC_SRC_ANDROID,
-    ":android_arm": NSYNC_SRC_ANDROID,
-    ":android_arm64": NSYNC_SRC_ANDROID,
-    ":msvc_windows_x86_64": NSYNC_SRC_WINDOWS,
+
+    # The following ought to work, but lead to errors on some versions of bazel:
+    # "@platforms//os:netbsd": NSYNC_SRC_NETBSD,
+    # nsync doesn't yet have a port for these:
+    # "@platforms//os:chromiumos"
+    # "@platforms//os:emscripten"
+    # "@platforms//os:fuchsia"
+    # "@platforms//os:haiku"
+    # "@platforms//os:nixos"
+    # "@platforms//os:qnx"
+    # "@platforms//os:tvos"
+    # "@platforms//os:visionos"
+    # "@platforms//os:vxworks"
+    # "@platforms//os:wasi"
+    # "@platforms//os:watchos"
+    "@platforms//os:android": NSYNC_SRC_ANDROID,
+    "@platforms//os:freebsd": NSYNC_SRC_FREEBSD,
+    "@platforms//os:ios": NSYNC_SRC_MACOS,
+    "@platforms//os:linux": NSYNC_SRC_LINUX,
+    "@platforms//os:macos": NSYNC_SRC_MACOS,
+    "@platforms//os:openbsd": NSYNC_SRC_OPENBSD,
+    "@platforms//os:windows": NSYNC_SRC_WINDOWS,
 })
 
 # C++11-specific (OS and architecture independent) library source.
@@ -390,25 +385,16 @@ NSYNC_SRC_PLATFORM_CPP = [
     "platform/c++11/src/yield.cc",
 ] + select({
     # On Linux, the C++11 library's synchronization primitives are surprisingly
-    # slow, at least at the time or writing (early 2018).  Raw kernel
+    # slow, at least at the time of writing (early 2018).  Raw kernel
     # primitives are ten times faster for wakeups.
-    ":gcc_linux_x86_32_1": ["platform/linux/src/nsync_semaphore_futex.c"],
-    ":gcc_linux_x86_64_1": ["platform/linux/src/nsync_semaphore_futex.c"],
-    ":gcc_linux_x86_64_2": ["platform/linux/src/nsync_semaphore_futex.c"],
-    ":gcc_linux_aarch64": ["platform/linux/src/nsync_semaphore_futex.c"],
-    ":gcc_linux_ppc64": ["platform/linux/src/nsync_semaphore_futex.c"],
-    ":gcc_linux_s390x": ["platform/linux/src/nsync_semaphore_futex.c"],
+    "@platforms//os:linux": ["platform/linux/src/nsync_semaphore_futex.c"],
     "//conditions:default": ["platform/c++11/src/nsync_semaphore_mutex.cc"],
 }) + select({
     # MacOS and Android don't have working C++11 thread local storage.
-    ":clang_macos_x86_64": ["platform/posix/src/per_thread_waiter.c"],
-    ":android_x86_32": ["platform/posix/src/per_thread_waiter.c"],
-    ":android_x86_64": ["platform/posix/src/per_thread_waiter.c"],
-    ":android_armeabi": ["platform/posix/src/per_thread_waiter.c"],
-    ":android_arm": ["platform/posix/src/per_thread_waiter.c"],
-    ":android_arm64": ["platform/posix/src/per_thread_waiter.c"],
-    ":ios_x86_64": ["platform/posix/src/per_thread_waiter.c"],
-    ":msvc_windows_x86_64": [
+    "@platforms//os:macos": ["platform/posix/src/per_thread_waiter.c"],
+    "@platforms//os:android": ["platform/posix/src/per_thread_waiter.c"],
+    "@platforms//os:ios": ["platform/posix/src/per_thread_waiter.c"],
+    "@platforms//os:windows": [
         "platform/win32/src/clock_gettime.c",
         # Windows has no thread-specific data with thread-exit destructors; we
         # must emulate it with C++ per-thread class destructors.
@@ -510,23 +496,47 @@ NSYNC_TEST_SRC_FREEBSD = [
     "platform/posix/src/start_thread.c",
 ]
 
+# NetBSD-specific test library source.
+NSYNC_TEST_SRC_NETBSD = [
+    "platform/posix/src/start_thread.c",
+]
+
+# OpenBSD-specific test library source.
+NSYNC_TEST_SRC_OPENBSD = [
+    "platform/posix/src/start_thread.c",
+]
+
+# POSIX test library source.
+NSYNC_TEST_SRC_POSIX = [
+    "platform/posix/src/start_thread.c",
+]
+
 # OS-specific test library source.
 NSYNC_TEST_SRC_PLATFORM = select({
-    ":gcc_linux_x86_32_1": NSYNC_TEST_SRC_LINUX,
-    ":gcc_linux_x86_64_1": NSYNC_TEST_SRC_LINUX,
-    ":gcc_linux_x86_64_2": NSYNC_TEST_SRC_LINUX,
-    ":gcc_linux_aarch64": NSYNC_TEST_SRC_LINUX,
-    ":gcc_linux_ppc64": NSYNC_TEST_SRC_LINUX,
-    ":gcc_linux_s390x": NSYNC_TEST_SRC_LINUX,
-    ":clang_macos_x86_64": NSYNC_TEST_SRC_MACOS,
-    ":freebsd": NSYNC_TEST_SRC_FREEBSD,
-    ":ios_x86_64": NSYNC_TEST_SRC_MACOS,
-    ":android_x86_32": NSYNC_TEST_SRC_ANDROID,
-    ":android_x86_64": NSYNC_TEST_SRC_ANDROID,
-    ":android_armeabi": NSYNC_TEST_SRC_ANDROID,
-    ":android_arm": NSYNC_TEST_SRC_ANDROID,
-    ":android_arm64": NSYNC_TEST_SRC_ANDROID,
-    ":msvc_windows_x86_64": NSYNC_TEST_SRC_WINDOWS,
+    # Select the OS include directory.
+
+    # The following ought to work, but lead to errors on some versions of bazel:
+    # "@platforms//os:netbsd": NSYNC_TEST_SRC_NETBSD,
+    # nsync doesn't yet have a port for these:
+    # "@platforms//os:chromiumos"
+    # "@platforms//os:emscripten"
+    # "@platforms//os:fuchsia"
+    # "@platforms//os:haiku"
+    # "@platforms//os:nixos"
+    # "@platforms//os:qnx"
+    # "@platforms//os:tvos"
+    # "@platforms//os:visionos"
+    # "@platforms//os:vxworks"
+    # "@platforms//os:wasi"
+    # "@platforms//os:watchos"
+    "@platforms//os:android": NSYNC_TEST_SRC_ANDROID,
+    "@platforms//os:freebsd": NSYNC_TEST_SRC_FREEBSD,
+    "@platforms//os:ios": NSYNC_TEST_SRC_MACOS,
+    "@platforms//os:linux": NSYNC_TEST_SRC_LINUX,
+    "@platforms//os:macos": NSYNC_TEST_SRC_MACOS,
+    "@platforms//os:openbsd": NSYNC_TEST_SRC_OPENBSD,
+    "@platforms//os:windows": NSYNC_TEST_SRC_WINDOWS,
+    "//conditions:default": NSYNC_TEST_SRC_POSIX,
 })
 
 # C++11-specific (OS and architecture independent) test library source.
