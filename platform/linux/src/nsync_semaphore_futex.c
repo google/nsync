@@ -16,9 +16,19 @@
 
 NSYNC_CPP_START_
 
+/* Linux uses 64-bit time when _TIME_BITS==64; only __NR_futex_time64 is
+   defined for some CPU types. */
+#define NSYNC_NR_FUTEX __NR_futex
+#if defined(__NR_futex_time64) && (defined(_TIME_BITS) || !defined(__NR_futex))
+#if _TIME_BITS == 64 || !defined(__NR_futex)
+#undef NSYNC_NR_FUTEX
+#define NSYNC_NR_FUTEX __NR_futex_time64
+#endif
+#endif
+
 static int futex (int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2,
 		  int val3) {
-	return (syscall (__NR_futex, uaddr, op, val, timeout, uaddr2, val3));
+	return (syscall (NSYNC_NR_FUTEX, uaddr, op, val, timeout, uaddr2, val3));
 }
 
 /* Check that atomic operations on nsync_atomic_uint32_ can be applied to int. */
