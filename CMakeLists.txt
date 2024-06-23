@@ -29,7 +29,7 @@ function (set_c_target tgtname files)
 			"${PROJECT_SOURCE_DIR}/platform/linux"
 		)
 	endif ()
-endfunction (set_c_target)
+endfunction ()
 
 function (set_cpp_target tgtname files)
 	target_include_directories ("${tgtname}" BEFORE PRIVATE
@@ -49,7 +49,7 @@ function (set_cpp_target tgtname files)
 			PROPERTIES LANGUAGE CXX
 			COMPILE_FLAGS "${NSYNC_CPP_FLAGS}")
 	endforeach (s)
-endfunction (set_cpp_target)
+endfunction ()
 
 # -----------------------------------------------------------------
 # Platform dependencies
