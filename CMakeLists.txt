@@ -19,17 +19,17 @@ option(NSYNC_ENABLE_TESTS "Enable for building tests" ON)
 function(set_c_target tgtname files)
   if("${CMAKE_SYSTEM_NAME}X" STREQUAL "LinuxX")
     target_include_directories("${tgtname}" BEFORE
-                               PRIVATE "${PROJECT_SOURCE_DIR}/platform/linux")
+                               PRIVATE "platform/linux")
   endif()
 endfunction()
 
 function(set_cpp_target tgtname files)
   target_include_directories("${tgtname}" BEFORE
-                             PRIVATE "${PROJECT_SOURCE_DIR}/platform/c++11")
+                             PRIVATE "platform/c++11")
 
   if("${CMAKE_SYSTEM_NAME}X" STREQUAL "LinuxX")
     target_include_directories(
-      "${tgtname}" BEFORE PRIVATE "${PROJECT_SOURCE_DIR}/platform/c++11.futex")
+      "${tgtname}" BEFORE PRIVATE "platform/c++11.futex")
   endif()
 
   target_compile_definitions("${tgtname}" PRIVATE "${NSYNC_CPP_DEFINITIONS}")
@@ -38,6 +38,14 @@ function(set_cpp_target tgtname files)
     set_source_files_properties(
       "${s}" PROPERTIES LANGUAGE CXX COMPILE_FLAGS "${NSYNC_CPP_FLAGS}")
   endforeach(s)
+endfunction()
+
+function (copy_to_cpp file)
+  add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/cpp/${file}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/${file}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/cpp/${file}"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${file}")
 endfunction()
 
 # -----------------------------------------------------------------
@@ -93,7 +101,7 @@ endif()
 
 # Pick the include directory for the operating system.
 if("${CMAKE_SYSTEM_NAME}X" STREQUAL "WindowsX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/win32")
+  include_directories("platform/win32")
   set(NSYNC_CPP_FLAGS "/TP")
 
   set(NSYNC_OS_SRC
@@ -110,7 +118,7 @@ if("${CMAKE_SYSTEM_NAME}X" STREQUAL "WindowsX")
       "platform/win32/src/pthread_key_win32.cc")
   set(NSYNC_TEST_OS_SRC "platform/win32/src/start_thread.c")
 elseif("${CMAKE_SYSTEM_NAME}X" STREQUAL "DarwinX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/macos")
+  include_directories("platform/macos")
   # Some versions of MacOS, such as Sierra, require _DARWIN_C_SOURCE when
   # including certin C++ standard header files, such as <mutex>.
   set(NSYNC_CPP_DEFINITIONS ${NSYNC_CPP_DEFINITIONS} _DARWIN_C_SOURCE)
@@ -129,21 +137,21 @@ elseif("${CMAKE_SYSTEM_NAME}X" STREQUAL "LinuxX")
   set(NSYNC_OS_CPP_SRC "platform/linux/src/nsync_semaphore_futex.c"
                        ${NSYNC_OS_CPP_SRC})
 elseif("${CMAKE_SYSTEM_NAME}X" STREQUAL "NetBSDX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/netbsd")
+  include_directories("platform/netbsd")
   set(NSYNC_POSIX ON)
 
   set(NSYNC_OS_EXTRA_SRC "platform/posix/src/nsync_semaphore_mutex.c")
   set(NSYNC_OS_CPP_SRC "platform/c++11/src/nsync_semaphore_mutex.cc"
                        ${NSYNC_OS_CPP_SRC})
 elseif("${CMAKE_SYSTEM_NAME}X" STREQUAL "FreeBSDX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/freebsd")
+  include_directories("platform/freebsd")
   set(NSYNC_POSIX ON)
 
   set(NSYNC_OS_EXTRA_SRC "platform/posix/src/nsync_semaphore_mutex.c")
   set(NSYNC_OS_CPP_SRC "platform/c++11/src/nsync_semaphore_mutex.cc"
                        ${NSYNC_OS_CPP_SRC})
 elseif("${CMAKE_SYSTEM_NAME}X" STREQUAL "OpenBSDX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/openbsd")
+  include_directories("platform/openbsd")
   set(NSYNC_POSIX ON)
 
   set(NSYNC_OS_EXTRA_SRC "platform/posix/src/nsync_semaphore_mutex.c")
@@ -159,20 +167,20 @@ endif()
 
 # Pick the include directory for the compiler.
 if("${CMAKE_C_COMPILER_ID}X" STREQUAL "GNUX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/gcc")
+  include_directories("platform/gcc")
   set(THREADS_HAVE_PTHREAD_ARG ON)
 elseif("${CMAKE_C_COMPILER_ID}X" STREQUAL "ClangX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/clang")
+  include_directories("platform/clang")
   set(THREADS_HAVE_PTHREAD_ARG ON)
 elseif("${CMAKE_C_COMPILER_ID}X" STREQUAL "MSVCX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/msvc")
+  include_directories("platform/msvc")
 else()
   message(
     WARNING "CMAKE_C_COMPILER_ID (${CMAKE_C_COMPILER_ID}) matched NOTHING")
 endif()
 
 if(NSYNC_POSIX)
-  include_directories("${PROJECT_SOURCE_DIR}/platform/posix")
+  include_directories("platform/posix")
   set(NSYNC_CPP_FLAGS "-std=c++11")
 
   set(NSYNC_OS_SRC ${NSYNC_POSIX_SRC} ${NSYNC_OS_EXTRA_SRC})
@@ -183,36 +191,36 @@ endif()
 if(("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "x86_64X")
    OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "amd64X")
    OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "AMD64X"))
-  include_directories("${PROJECT_SOURCE_DIR}/platform/x86_64")
+  include_directories("platform/x86_64")
 elseif(
   ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "x86_32X")
   OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "i386X")
   OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "i686X"))
-  include_directories("${PROJECT_SOURCE_DIR}/platform/x86_32")
+  include_directories("platform/x86_32")
 elseif(
   ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "armv6lX")
   OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "armv7lX")
   OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "armX"))
-  include_directories("${PROJECT_SOURCE_DIR}/platform/arm")
+  include_directories("platform/arm")
 elseif(("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "aarch64X")
        OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "arm64X"))
-  include_directories("${PROJECT_SOURCE_DIR}/platform/aarch64")
+  include_directories("platform/aarch64")
 elseif(("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "ppcX")
        OR ("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "ppc32X"))
-  include_directories("${PROJECT_SOURCE_DIR}/platform/ppc32")
+  include_directories("platform/ppc32")
 elseif(("${CMAKE_SYSTEM_PROCESSOR}X" STREQUAL "ppc64X"))
-  include_directories("${PROJECT_SOURCE_DIR}/platform/ppc64")
+  include_directories("platform/ppc64")
 endif()
 
 # Windows uses some include files from the posix directory also.
 if("${CMAKE_SYSTEM_NAME}X" STREQUAL "WindowsX")
-  include_directories("${PROJECT_SOURCE_DIR}/platform/posix")
+  include_directories("platform/posix")
 endif()
 
 # -----------------------------------------------------------------
 
-include_directories("${PROJECT_SOURCE_DIR}/public")
-include_directories("${PROJECT_SOURCE_DIR}/internal")
+include_directories("public")
+include_directories("internal")
 
 include(GNUInstallDirs)
 
@@ -242,12 +250,7 @@ foreach(s IN ITEMS ${NSYNC_COMMON_SRC} ${NSYNC_OS_CPP_SRC})
   # on the extension so we need to override LANGUAGE manually. A custom command
   # first copies the source files (only if changed) so the LANGUAGE property
   # does not conflict.
-  add_custom_command(
-    OUTPUT cpp/${s}
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/${s}
-            cpp/${s}
-    DEPENDS ${PROJECT_SOURCE_DIR}/${s})
-
+  copy_to_cpp("${s}")
   set(NSYNC_CPP_SRC_COPY ${NSYNC_CPP_SRC_COPY} cpp/${s})
 endforeach(s)
 
@@ -272,15 +275,10 @@ if(NSYNC_ENABLE_TESTS)
                                                      ${PROJECT_VERSION_MAJOR})
 
   set_c_target(nsync_test "${NSYNC_TEST_SRC}")
-  target_include_directories(nsync_test PUBLIC "${PROJECT_SOURCE_DIR}/testing")
+  target_include_directories(nsync_test PUBLIC "testing")
 
   foreach(t IN ITEMS ${NSYNC_TEST_SRC})
-    add_custom_command(
-      OUTPUT cpp/${t}
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/${t}
-              cpp/${t}
-      DEPENDS ${PROJECT_SOURCE_DIR}/${t})
-
+    copy_to_cpp("${t}")
     set(NSYNC_TEST_CPP_SRC "${NSYNC_TEST_CPP_SRC}" "cpp/${t}")
   endforeach(t)
 
@@ -291,7 +289,7 @@ if(NSYNC_ENABLE_TESTS)
 
   set_cpp_target(nsync_test_cpp "${NSYNC_TEST_CPP_SRC}")
   target_include_directories(nsync_test_cpp
-                             PUBLIC "${PROJECT_SOURCE_DIR}/testing")
+                             PUBLIC "testing")
 
   # Test names should not end with _cpp
   set(NSYNC_TESTS
@@ -318,21 +316,16 @@ if(NSYNC_ENABLE_TESTS)
   foreach(t IN ITEMS ${NSYNC_TESTS})
     add_executable(${t} "testing/${t}.c")
     set_c_target(${t} "testing/${t}.c")
-    target_include_directories(${t} PUBLIC "${PROJECT_SOURCE_DIR}/testing")
+    target_include_directories(${t} PUBLIC "testing")
     target_link_libraries(${t} nsync_test nsync)
     add_test(NAME ${t} COMMAND ${t})
     add_dependencies(test_c ${t})
 
-    add_custom_command(
-      OUTPUT cpp/testing/${t}.c
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-              ${PROJECT_SOURCE_DIR}/testing/${t}.c cpp/testing/${t}.c
-      DEPENDS ${PROJECT_SOURCE_DIR}/testing/${t}.c)
-
+    copy_to_cpp("testing/${t}.c")
     set(NSYNC_TEST_CPP_SRC ${NSYNC_TEST_CPP_SRC} cpp/testing/${t}.c)
     add_executable(${t}_cpp "cpp/testing/${t}.c")
     set_cpp_target(${t}_cpp "cpp/testing/${t}.c")
-    target_include_directories(${t}_cpp PUBLIC "${PROJECT_SOURCE_DIR}/testing")
+    target_include_directories(${t}_cpp PUBLIC "testing")
     target_link_libraries(${t}_cpp nsync_test_cpp nsync_cpp)
     add_test(NAME ${t}_cpp COMMAND ${t}_cpp)
     add_dependencies(test_cpp ${t}_cpp)
