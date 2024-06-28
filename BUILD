@@ -138,6 +138,7 @@ NSYNC_OPTS = select({
     # Select the compiler include directory.
     ":gcc": ["-I" + pkg_path_name() + "/platform/gcc"],
     ":clang": ["-I" + pkg_path_name() + "/platform/clang"],
+    ":clang-cl": ["-I" + pkg_path_name() + "/platform/clang"],
     ":msvc-cl": ["-I" + pkg_path_name() + "/platform/msvc"],
     "//conditions:default": ["-I" + pkg_path_name() + "/platform/gcc"],
 }) + select({
@@ -152,6 +153,7 @@ NSYNC_OPTS = select({
 # Options for C++11 build, rather then C build.
 NSYNC_OPTS_CPP = select({
     ":msvc-cl": ["/TP"],
+    ":clang-cl": ["/TP"],
     "//conditions:default": [
         "-x",
         "c++",
@@ -198,12 +200,14 @@ NSYNC_OPTS_CPP = select({
 # Link options (for tests) built in C (rather than C++11).
 NSYNC_LINK_OPTS = select({
     ":msvc-cl": [],
+    ":clang-cl": [],
     "//conditions:default": ["-pthread"],
 })
 
 # Link options (for tests) built in C++11 (rather than C).
 NSYNC_LINK_OPTS_CPP = select({
     ":msvc-cl": [],
+    ":clang-cl": [],
     "//conditions:default": ["-pthread"],
 })
 
