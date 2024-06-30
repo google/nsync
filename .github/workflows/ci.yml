@@ -1,0 +1,81 @@
+name: CI Build and Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  BUILD_DIR: obj
+
+jobs:
+  native:
+    runs-on: ${{ matrix.os }}
+    name: "Native build and test on ${{ matrix.os }}"
+    strategy:
+      matrix:
+        # MacOS-13 is x86_64, MacOS-14 is ARM64
+        os: [ubuntu-20.04, ubuntu-22.04, windows-latest, macos-13, macos-14]
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    - name: Build
+      run: |
+        cmake -S . -B "${{ env.BUILD_DIR }}"
+        cmake --build "${{ env.BUILD_DIR }}"
+
+    - name: Run Native Test
+      run: |
+        ctest --test-dir "${{ env.BUILD_DIR }}" --output-on-failure -C "Debug"
+
+  cross:
+    runs-on: ubuntu-22.04
+    name: "Cross build and test for ${{ matrix.platform.arch }}"
+    strategy:
+      matrix:
+        # Arch: arch for QEmu
+        # Libs: path to cross-libs
+        # Triplet: triplet of the compiler
+        platform: [
+          {
+            arch: alpha,
+            libs: /usr/alpha-linux-gnu,
+            triplet: alpha-linux-gnu
+          },
+          {
+            arch: mips,
+            libs: /usr/mips-linux-gnu,
+            triplet: mips-linux-gnu
+          },
+          {
+            arch: riscv64,
+            libs: /usr/riscv64-linux-gnu,
+            triplet: riscv64-linux-gnu
+          }
+        ]
+      fail-fast: false
+
+    env:
+      QEMU_LD_PREFIX: ${{ matrix.platform.libs }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    - name: Setup cross-compilation toolchain and QEMU
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-${{ matrix.platform.triplet }} qemu-user-static
+
+    - name: Cross Compilation for ${{ matrix.platform.arch }}
+      run: |
+        CC=${{ matrix.platform.triplet }}-gcc CXX=${{ matrix.platform.triplet }}-g++ cmake -S . -B "${{ env.BUILD_DIR }}" -DCMAKE_CROSSCOMPILING_EMULATOR="qemu-${{ matrix.platform.arch }}-static"
+        cmake --build "${{ env.BUILD_DIR }}" -j4
+
+    - name: Test w/ Qemu for ${{ matrix.platform.arch }}
+      run: |
+        ctest --test-dir "${{ env.BUILD_DIR }}" --output-on-failure
