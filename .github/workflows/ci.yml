@@ -23,7 +23,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
+    - name: Build for slow machine
+      if: matrix.os == 'macos-14'
+      run: |
+        cmake -S . -B "${{ env.BUILD_DIR }}" -DNSYNC_TESTING_SLOW_MACHINE=ON
+        cmake --build "${{ env.BUILD_DIR }}"
+
     - name: Build
+      if: matrix.os != 'macos-14'
       run: |
         cmake -S . -B "${{ env.BUILD_DIR }}"
         cmake --build "${{ env.BUILD_DIR }}"
