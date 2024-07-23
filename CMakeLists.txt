@@ -19,6 +19,7 @@ set (CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Allow nsync users to turn the tests on or off.
 option (NSYNC_ENABLE_TESTS "Enable for building tests" ON)
+option (NSYNC_TESTING_SLOW_MACHINE "Allow relax waiting time for very slow machine" OFF)
 
 # -----------------------------------------------------------------
 # Functions to set common options on targets and files.
@@ -291,6 +292,10 @@ set_cpp_target (nsync_cpp "${NSYNC_CPP_SRC_COPY}")
 
 
 if (NSYNC_ENABLE_TESTS)
+	if (NSYNC_TESTING_SLOW_MACHINE)
+		add_compile_options ("-DNSYNC_TESTING_SLOW_MACHINE")
+	endif()
+
 	set (NSYNC_TEST_SRC
 		"testing/array.c"
 		"testing/atm_log.c"

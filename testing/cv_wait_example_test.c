@@ -136,6 +136,19 @@ static void example_cv_wait (testing t) {
 	static const char *input[] = { "one", "two", "three", "four", "five" };
 	string_priority_queue_cv q;
 	a_char output;
+#ifdef NSYNC_TESTING_SLOW_MACHINE
+	static const int waiting_factor = 2;
+	static const char *expected =
+		"one\n"
+		"three\n"
+		"two\n"
+		"timeout 0.2s\n"
+		"four\n"
+		"timeout 0.2s\n"
+		"five\n"
+		"timeout 2s\n";
+#else
+	static const int waiting_factor = 1;
 	static const char *expected =
 		"one\n"
 		"three\n"
@@ -145,24 +158,25 @@ static void example_cv_wait (testing t) {
 		"timeout 0.1s\n"
 		"five\n"
 		"timeout 1s\n";
+#endif
 
 	memset ((void *) &q, 0, sizeof (q));
 	memset (&output, 0, sizeof (output));
 
 	closure_fork (closure_add_and_wait_cv (&add_and_wait_cv, &q,
-					       nsync_time_ms (500), NELEM (input), input));
+					       nsync_time_ms (waiting_factor * 500), NELEM (input), input));
 
 	/* delay: "one", "two", "three" are queued; not "four" */
-	nsync_time_sleep (nsync_time_ms (1200));
+	nsync_time_sleep (nsync_time_ms (waiting_factor * 1200));
 
-	remove_and_print_cv (&q, nsync_time_ms (1000), &output);    /* "one" */
-	remove_and_print_cv (&q, nsync_time_ms (1000), &output);    /* "three" (less than "two") */
-	remove_and_print_cv (&q, nsync_time_ms (1000), &output);    /* "two" */
-	remove_and_print_cv (&q, nsync_time_ms (100), &output); /* time out because 1.3 < 0.5*3 */
-	remove_and_print_cv (&q, nsync_time_ms (1000), &output);    /* "four" */
-	remove_and_print_cv (&q, nsync_time_ms (100), &output); /* time out because 0.1 < 0.5 */
-	remove_and_print_cv (&q, nsync_time_ms (1000), &output);    /* "five" */
-	remove_and_print_cv (&q, nsync_time_ms (1000), &output);    /* time out: no more to fetch */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 1000), &output);    /* "one" */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 1000), &output);    /* "three" (less than "two") */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 1000), &output);    /* "two" */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 100), &output); /* time out because 1.3 < 0.5*3 */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 1000), &output);    /* "four" */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 100), &output); /* time out because 0.1 < 0.5 */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 1000), &output);    /* "five" */
+	remove_and_print_cv (&q, nsync_time_ms (waiting_factor * 1000), &output);    /* time out: no more to fetch */
 
 	A_PUSH (&output) = 0;
 	if (strcmp (&A (&output, 0), expected) != 0) {
