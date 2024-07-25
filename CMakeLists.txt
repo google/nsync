@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.12)
+cmake_minimum_required (VERSION 2.8.12...3.28.3)
 
 # nsync provides portable synchronization primitives, such as mutexes and
 # condition variables.
@@ -29,7 +29,7 @@ function (set_c_target tgtname files)
 			"${PROJECT_SOURCE_DIR}/platform/linux"
 		)
 	endif ()
-endfunction (set_c_target)
+endfunction ()
 
 function (set_cpp_target tgtname files)
 	target_include_directories ("${tgtname}" BEFORE PRIVATE
@@ -49,7 +49,16 @@ function (set_cpp_target tgtname files)
 			PROPERTIES LANGUAGE CXX
 			COMPILE_FLAGS "${NSYNC_CPP_FLAGS}")
 	endforeach (s)
-endfunction (set_cpp_target)
+endfunction ()
+
+function (copy_to_cpp file)
+	add_custom_command(
+		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/cpp/${file}"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/${file}"
+			"${CMAKE_CURRENT_BINARY_DIR}/cpp/${file}"
+		DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${file}"
+	)
+endfunction ()
 
 # -----------------------------------------------------------------
 # Platform dependencies
@@ -271,11 +280,7 @@ foreach (s IN ITEMS ${NSYNC_COMMON_SRC} ${NSYNC_OS_CPP_SRC})
 	# the filetype based on the extension so we need to override LANGUAGE
 	# manually. A custom command first copies the source files (only if
 	# changed) so the LANGUAGE property does not conflict.
-	add_custom_command (
-		OUTPUT cpp/${s}
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/${s} cpp/${s}
-		DEPENDS ${PROJECT_SOURCE_DIR}/${s}
-	)
+	copy_to_cpp("${s}")
 
 	set (NSYNC_CPP_SRC_COPY ${NSYNC_CPP_SRC_COPY}
 		cpp/${s}
@@ -311,11 +316,7 @@ if (NSYNC_ENABLE_TESTS)
 	)
 
 	foreach (t IN ITEMS ${NSYNC_TEST_SRC})
-		add_custom_command (
-			OUTPUT cpp/${t}
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/${t} cpp/${t}
-			DEPENDS ${PROJECT_SOURCE_DIR}/${t}
-		)
+		copy_to_cpp("${t}")
 
 		set (NSYNC_TEST_CPP_SRC "${NSYNC_TEST_CPP_SRC}"
 			"cpp/${t}"
@@ -365,11 +366,7 @@ if (NSYNC_ENABLE_TESTS)
 		add_test (NAME ${t} COMMAND ${t})
 		add_dependencies (test_c ${t})
 
-		add_custom_command (
-			OUTPUT cpp/testing/${t}.c
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/testing/${t}.c cpp/testing/${t}.c
-			DEPENDS ${PROJECT_SOURCE_DIR}/testing/${t}.c
-		)
+		copy_to_cpp("testing/${t}.c")
 
 		set (NSYNC_TEST_CPP_SRC ${NSYNC_TEST_CPP_SRC}
 			cpp/testing/${t}.c
