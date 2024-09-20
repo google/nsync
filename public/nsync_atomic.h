@@ -45,7 +45,7 @@ NSYNC_CPP_END_
 NSYNC_CPP_START_
 typedef std::atomic<uint32_t> nsync_atomic_uint32_;
 NSYNC_CPP_END_
-#define NSYNC_ATOMIC_UINT32_INIT_ (std::atomic<uint32_t> (0))
+#define NSYNC_ATOMIC_UINT32_INIT_ { 0 }
 #define NSYNC_ATOMIC_UINT32_LOAD_(p) (std::atomic_load (p))
 #define NSYNC_ATOMIC_UINT32_STORE_(p,v) (std::atomic_store ((p), (uint32_t) (v)))
 #define NSYNC_ATOMIC_UINT32_PTR_(p) (p)
