@@ -16,6 +16,7 @@
 #define NSYNC_PLATFORM_CPP11_PLATFORM_H_
 
 /* These C header files are in "C compatibility headers" in C++11. */
+#include <chrono>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
