@@ -28,6 +28,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #include "nsync_cpp.h"
 
