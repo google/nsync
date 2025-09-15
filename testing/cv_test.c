@@ -203,7 +203,11 @@ static void test_cv_producer_consumer6 (testing t) {
 
 /* The following values control how aggressively we police the timeout. */
 #define TOO_EARLY_MS 1
+#ifdef NSYNC_TESTING_SLOW_MACHINE
+#define TOO_LATE_MS 200   /* longer, to accommodate scheduling delays */
+#else
 #define TOO_LATE_MS 100   /* longer, to accommodate scheduling delays */
+#endif
 #define TOO_LATE_ALLOWED 25         /* number of iterations permitted to violate too_late */
 
 /* Check timeouts on a CV wait_with_deadline(). */
